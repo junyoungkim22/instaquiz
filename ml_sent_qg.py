@@ -1,7 +1,6 @@
 from textblob import TextBlob
-from abc import ABC, abstractmethod
 
-class MlSentQG(ABC):
+class MlSentQG():
     paragraph = ''
     sent_list = []
 
@@ -11,6 +10,15 @@ class MlSentQG(ABC):
         for sent in blob.sentences:
             self.sent_list.append(str(sent))
 
-    @abstractmethod
     def question_generation(self):
-        pass
+        #Fake outputs
+        questions = []
+        answers = []
+        questions.append("What are mathematial models of sample data in machine learning called?")
+        answers.append("training data")
+        questions.append("What are three applications of machine learning?")
+        answers.append("email filtering, detection of network intruders, computer vision")
+        questions.append("Data mining focuses on exploratory data analysis through what method?")
+        answers.append("unsupervised learning")
+
+        return (questions, answers)
