@@ -9,7 +9,7 @@ static_sent_qg = StaticSentQG(text)
 ml_sent_qg = MlSentQG(text)
 ml_para_qg = MlParaQG(text)
 
-for sent in static_sent_qg.question_generation():
+for sent in static_sent_qg.question_generation()[0]:
     print "-"*50
     print sent
     

@@ -1,4 +1,5 @@
 import re
+import random
 from textblob import TextBlob
 
 class StaticSentQG:
@@ -14,13 +15,16 @@ class StaticSentQG:
         sent_blob = TextBlob(sentence)
         noun_list = sent_blob.noun_phrases
         question = sentence
-        for np in sent_blob.noun_phrases:
-            pattern = re.compile(np, re.IGNORECASE)
-            question = pattern.sub("_______", question)
-        return question
+        np = random.choice(sent_blob.noun_phrases)
+        pattern = re.compile(np, re.IGNORECASE)
+        question = pattern.sub("_______", question)
+        return (question, np)
 
     def question_generation(self):
         question_list = []
+        answer_list = []
         for sent in self.sent_list:
-            question_list.append(self.noun_question(sent))
-        return question_list
+            qa_tuple = self.noun_question(sent)
+            question_list.append(qa_tuple[0])
+            answer_list.append(qa_tuple[1])
+        return (question_list, answer_list)
