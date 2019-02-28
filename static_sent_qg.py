@@ -21,10 +21,8 @@ class StaticSentQG:
         return (question, np)
 
     def question_generation(self):
-        question_list = []
-        answer_list = []
+        qa_list = []
         for sent in self.sent_list:
             qa_tuple = self.noun_question(sent)
-            question_list.append(qa_tuple[0])
-            answer_list.append(qa_tuple[1])
-        return (question_list, answer_list)
+            qa_list.append(qa_tuple)
+        return qa_list

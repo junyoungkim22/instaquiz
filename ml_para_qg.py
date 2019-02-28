@@ -16,4 +16,4 @@ class MlParaQG():
         answers = []
         questions.append("What are three fields of study that are related to machine learning?")
         answers.append("computational statistics, mathematical optimization, Data mining")
-        return (questions, answers)
+        return zip(questions, answers)

@@ -21,4 +21,4 @@ class MlSentQG():
         questions.append("Data mining focuses on exploratory data analysis through what method?")
         answers.append("unsupervised learning")
 
-        return (questions, answers)
+        return zip(questions, answers)

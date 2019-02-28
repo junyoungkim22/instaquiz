@@ -9,14 +9,8 @@ static_sent_qg = StaticSentQG(text)
 ml_sent_qg = MlSentQG(text)
 ml_para_qg = MlParaQG(text)
 
-for sent in static_sent_qg.question_generation()[0]:
-    print "-"*50
-    print sent
-    
-for sent in ml_sent_qg.question_generation()[0]:
-    print "-"*50
-    print sent
+qa_list = static_sent_qg.question_generation() + ml_sent_qg.question_generation() + ml_para_qg.question_generation()
 
-for sent in ml_para_qg.question_generation()[0]:
+for qa in qa_list:
     print "-"*50
-    print sent
+    print qa[0]
