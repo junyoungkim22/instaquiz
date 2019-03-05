@@ -17,14 +17,38 @@ def word_tokenize(sent):
 def process_file(file_name):
     with open("data/" + file_name, "r") as data_file:
         source = json.load(data_file)
+        ret = []
         for article in tqdm(source["data"]):
             for para in article["paragraphs"]:
                 context = para["context"].replace("''", '" ').replace("``", '" ')
-                context_tokens = word_tokenize(context)
-                print(context)
-                print('*'*70)
-                print(context_tokens)
-                print('-'*80)
+                #context_tokens = word_tokenize(context)
+                context_qas = []
+                for qa in para["qas"]:
+                    question = qa["question"].replace("''", '" ').replace("``", '" ')
+                    ans_txt_pos = []
+                    for answer in qa["answers"]:
+                        answer_text = answer["text"]
+                        answer_start = answer['answer_start']
+                        answer_end = answer_start + len(answer_text)
+                        ans_txt_pos.append((answer_text, (answer_start, answer_end)))
+                    context_qas.append((question, ans_txt_pos))
+                ret.append((context, context_qas))
+        return ret
 
-
-process_file("train-v2.0.json")
+data = process_file("train-v2.0.json")
+i = 0
+for context, context_qas in data:
+    print(context)
+    print('*'*80)
+    for question, answers in context_qas:
+        print(question)
+        print('-'*80)
+        for txt, (start, end) in answers:
+            print(txt)
+            print(start)
+            print(end)
+            print('&'*80)
+    print("\n")
+    i += 1
+    if(i == 5):
+        break
