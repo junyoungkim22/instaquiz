@@ -1,5 +1,5 @@
 from static_sent_qg import StaticSentQG
-from ml_sent_qg import MlSentQG
+from ml_sent_qg.ml_sent_qg import MlSentQG
 from ml_para_qg import MlParaQG
 from evaluator import Evaluator
 from randomizer import Randomizer
