@@ -110,3 +110,4 @@ def test():
             if i == limit + 100:
                 break
     print(len(maker.word2index))
+    maker.save()
