@@ -2,7 +2,7 @@
 I0
 S'SOS'
 p1
-sI1
-S'EOS'
+sS'EOS'
 p2
+I1
 s.

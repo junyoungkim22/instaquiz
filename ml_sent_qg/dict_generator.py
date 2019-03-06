@@ -1,5 +1,7 @@
 import squad_loader
 import pickle
+import re
+import unicodedata
 
 dict_directory = "dictionary/"
 
@@ -20,7 +22,8 @@ class WordIndexMapper:
         self.n_words = len(self.word2index)
 
     def addParagraph(self, para):
-        for sent in para.split('.'):
+        paragraph = self.normalize(paragraph)
+        for sent in paragraph.split('.'):
             self.addSentence(sent)
 
     def addSentence(self, sentence):
@@ -47,10 +50,35 @@ class WordIndexMapper:
         pickle.dump(self.word2count, output)
         output.close()
 
+    def reset(self):
+        output = open(self.w2i_filename, 'wb')
+        pickle.dump({"SOS": 0, "EOS": 1}, output)
+        output.close()
+        output = open(self.i2w_filename, 'wb')
+        pickle.dump({0: "SOS","EOS" : 1}, output)
+        output.close()
+        output = open(self.w2c_filename, 'wb')
+        pickle.dump({}, output)
+        output.close()
+        
+    def unicodeToAscii(self, s):
+        return ''.join(
+            c for c in unicodedata.normalize('NFD', s)
+            if unicode.category(c) != 'Mn'
+        )
+
+    def normalizeString(self, s):
+        #s = self.unicodeToAscii(s.lower().strip())
+        s = s.lower().strip()
+        s = re.sub(r"([.!?])", r" \1", s)
+        s = re.sub(r"[^a-zA-Z.!?]+", r" ", s)
+        return s
+
     def paragraph_test(self, para):
         word_count = 0
         hit_count = 0
-        for sent in para.split(' '):
+        paragraph = self.normalize(para)
+        for sent in paragraph.split(' '):
             (hc, wc) = self.sentence_test(sent)
             word_count += wc
             hit_count += hc
@@ -67,16 +95,17 @@ class WordIndexMapper:
                 hit_count += 1 
             return (hit_count, word_count) 
                                 
-data = squad_loader.process_file("train-v2.0.json") 
-i = 0 
-maker = WordIndexMapper("word_to_index.pkl", "index_to_word.pkl", "word_to_count.pkl") 
-for context, context_qas in data: 
-    if i < 6000:
-        maker.addParagraph(context) 
-        i += 1 
-    else:
-        maker.paragraph_test(context)
-        i += 1
-        if i == 6050:
-            break
-print(len(maker.word2index))
+def test():
+    data = squad_loader.process_file("train-v2.0.json") 
+    i = 0 
+    maker = WordIndexMapper("word_to_index.pkl", "index_to_word.pkl", "word_to_count.pkl") 
+    for context, context_qas in data: 
+        if i < 6000:
+            maker.addParagraph(context) 
+            i += 1 
+        else:
+            maker.paragraph_test(context)
+            i += 1
+            if i == 6050:
+                break
+    print(len(maker.word2index))
