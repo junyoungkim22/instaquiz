@@ -1,0 +1,8 @@
+(dp0
+I0
+S'SOS'
+p1
+sI1
+S'EOS'
+p2
+s.
