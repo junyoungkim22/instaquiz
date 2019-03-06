@@ -22,7 +22,7 @@ class WordIndexMapper:
         self.n_words = len(self.word2index)
 
     def addParagraph(self, para):
-        paragraph = self.normalize(paragraph)
+        paragraph = self.normalizeString(para)
         for sent in paragraph.split('.'):
             self.addSentence(sent)
 
@@ -77,7 +77,7 @@ class WordIndexMapper:
     def paragraph_test(self, para):
         word_count = 0
         hit_count = 0
-        paragraph = self.normalize(para)
+        paragraph = self.normalizeString(para)
         for sent in paragraph.split(' '):
             (hc, wc) = self.sentence_test(sent)
             word_count += wc
@@ -98,14 +98,15 @@ class WordIndexMapper:
 def test():
     data = squad_loader.process_file("train-v2.0.json") 
     i = 0 
+    limit = 13500
     maker = WordIndexMapper("word_to_index.pkl", "index_to_word.pkl", "word_to_count.pkl") 
     for context, context_qas in data: 
-        if i < 6000:
+        if i < limit:
             maker.addParagraph(context) 
             i += 1 
         else:
             maker.paragraph_test(context)
             i += 1
-            if i == 6050:
+            if i == limit + 100:
                 break
     print(len(maker.word2index))
