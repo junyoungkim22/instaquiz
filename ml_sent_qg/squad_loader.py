@@ -35,20 +35,21 @@ def process_file(file_name):
                 ret.append((context, context_qas))
         return ret
 
-data = process_file("train-v2.0.json")
-i = 0
-for context, context_qas in data:
-    print(context)
-    print('*'*80)
-    for question, answers in context_qas:
-        print(question)
-        print('-'*80)
-        for txt, (start, end) in answers:
-            print(txt)
-            print(start)
-            print(end)
-            print('&'*80)
-    print("\n")
-    i += 1
-    if(i == 5):
-        break
+def test():
+    data = process_file("train-v2.0.json")
+    i = 0
+    for context, context_qas in data:
+        print(context)
+        print('*'*80)
+        for question, answers in context_qas:
+            print(question)
+            print('-'*80)
+            for txt, (start, end) in answers:
+                print(txt)
+                print(start)
+                print(end)
+                print('&'*80)
+        print("\n")
+        i += 1
+        if(i == 20):
+            break
