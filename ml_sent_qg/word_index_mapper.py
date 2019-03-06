@@ -1,9 +1,15 @@
 import squad_loader
+import torch
 import pickle
 import re
 import unicodedata
 
 dict_directory = "dictionary/"
+
+SOS_TOKEN = 0
+EOS_TOKEN = 1
+ANSS_TOKEN = 2
+ANSE_TOKEN = 3
 
 class WordIndexMapper:
     def __init__(self, w2i_filename, i2w_filename, w2c_filename):
@@ -20,6 +26,7 @@ class WordIndexMapper:
         self.word2count = pickle.load(w2c_pkl_file)
         w2c_pkl_file.close()
         self.n_words = len(self.word2index)
+        self.device = torch.device("cude" if torch.cuda.is_available() else "cpu")
 
     def addParagraph(self, para):
         paragraph = self.normalizeString(para)
@@ -66,6 +73,32 @@ class WordIndexMapper:
             c for c in unicodedata.normalize('NFD', s)
             if unicode.category(c) != 'Mn'
         )
+
+    def indexesFromParagraph(self, paragraph):
+        ret = []
+        for sent in paragraph.split('.'):
+            ret += self.indexesFromSentence(sent)
+        return ret
+
+    def indexesFromSentence(self, sentence):
+        ret = []
+        sentence = self.normalizeString(sentence)
+        for word in sentence.split(' '):
+            try:
+                ret.append(self.word2index[word])
+            except KeyError:
+                continue
+        return ret
+
+    def tensorFromParagraph(self, paragraph):
+        indexes = self.indexesFromParagraph(paragraph)
+        indexes.append(EOS_TOKEN)
+        return torch.tensor(indexes, dtype=torch.long, device=self.device).view(-1, 1)
+        
+    def tensorFromSentence(self, sentence):
+        indexes = self.indexesFromSentence(sentence)
+        indexes.append(EOS_TOKEN)
+        return torch.tensor(indexes, dtype=torch.long, device=self.device).view(-1, 1)
 
     def normalizeString(self, s):
         #s = self.unicodeToAscii(s.lower().strip())
