@@ -3,13 +3,16 @@ import torch
 import pickle
 import re
 import unicodedata
+from global_token import SOS_TOKEN, EOS_TOKEN
 
 dict_directory = "dictionary/"
 
+'''
 SOS_TOKEN = 0
 EOS_TOKEN = 1
 ANSS_TOKEN = 2
 ANSE_TOKEN = 3
+'''
 
 class WordIndexMapper:
     def __init__(self, w2i_filename, i2w_filename, w2c_filename):
@@ -99,6 +102,11 @@ class WordIndexMapper:
         indexes = self.indexesFromSentence(sentence)
         indexes.append(EOS_TOKEN)
         return torch.tensor(indexes, dtype=torch.long, device=self.device).view(-1, 1)
+
+    def tensorsFromPair(self, pair):
+        input_tensor = self.tensorFromParagraph(pair[0])
+        target_tensor = self.tensorFromSentence(pair[1])
+        return (input_tensor, target_tensor)
 
     def normalizeString(self, s):
         #s = self.unicodeToAscii(s.lower().strip())

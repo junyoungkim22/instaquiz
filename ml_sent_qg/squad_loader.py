@@ -40,7 +40,7 @@ def prepare_pairs():
     pairs = []
     for context, context_qas in data:
         for question, answers in context_qas:
-            pairs.append((context, question))]
+            pairs.append((context, question))
     return pairs
 
 

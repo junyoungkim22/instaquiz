@@ -1,12 +1,20 @@
 import torch
 import torch.nn as nn
-from word_index_mapper import WordIndexMapper
+import torch.nn.functional as F
+from torch import optim
 import time
 import math
+import random
+from tqdm import tqdm
+
 import squad_loader
+from word_index_mapper import WordIndexMapper
+from  global_token import EOS_TOKEN, SOS_TOKEN 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 MAX_LENGTH = 1000
+pairs = squad_loader.prepare_pairs()
+teacher_forcing_ratio = 0.5
 
 class EncoderRNN(nn.Module):
     def __init__(self, input_size, hidden_size):
@@ -40,7 +48,7 @@ class DecoderRNN(nn.Module):
         output = self.embedding(input).view(1, 1, -1)
         output = F.relu(output)
         output, hidden = self.gru(output, hidden)
-        output = self.softmax(self.out(output[0])
+        output = self.softmax(self.out(output[0]))
         return output, hidden
 
     def initHidden(self):
@@ -72,7 +80,7 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
 
     if use_teacher_forcing:
         for di in range(target_length):
-            decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden, encoder_outputs)
+            decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
             loss += criterion(decoder_output, target_tensor[di])
             decoder_input = target_tensor[di]
     else:
@@ -103,7 +111,7 @@ def timeSince(since, percent):
     rs = es - s
     return '%s (- %s)' % (asMinutes(s), asMinutes(rs))
 
-def trainIters(encoder, decoder, n_iters, print_every=1000, plot_every=100, learning_rate=0.01):
+def trainIters(encoder, decoder, n_iters, indexer, print_every=1000, plot_every=100, learning_rate=0.01):
     start = time.time()
     plot_losses = []
     print_loss_total = 0
@@ -111,10 +119,11 @@ def trainIters(encoder, decoder, n_iters, print_every=1000, plot_every=100, lear
 
     encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
-    training_pairs = [tensorsFromPair(random.choice(pairs)) for i in range(n_iters)]
+
+    training_pairs = [indexer.tensorsFromPair(random.choice(pairs)) for i in range(n_iters)]
     criterion = nn.NLLLoss()
 
-    for iter in range(1, n_iters + 1):
+    for iter in tqdm(range(1, n_iters + 1)):
         training_pair = training_pairs[iter-1]
         input_tensor = training_pair[0]
         target_tensor = training_pair[1]
@@ -133,7 +142,7 @@ def trainIters(encoder, decoder, n_iters, print_every=1000, plot_every=100, lear
                 plot_losses.append(plot_loss_avg)
                 plot_loss_total = 0
 
-def evaluate(encoder, decoder, paragraph, max_length=MAX_LENGTH, indexer):
+def evaluate(encoder, decoder, paragraph, indexer, max_length=MAX_LENGTH):
     with torch.no_grad():
         input_tensor = indexer.tensorFromParagraph(paragraph)
         input_length = input_tensor.size()[0]
@@ -151,7 +160,7 @@ def evaluate(encoder, decoder, paragraph, max_length=MAX_LENGTH, indexer):
         decoded_words = []
         
         for di in range(max_length):
-            decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden, encoder_outputs)
+            decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
             topv, topi = decoder_output.data.topk(1)
             if topi.item() == EOS_TOKEN:
                 decoded_words.append('<EOS')
@@ -162,20 +171,20 @@ def evaluate(encoder, decoder, paragraph, max_length=MAX_LENGTH, indexer):
             decoder_input = topi.squeeze().detach()
         return decoded_words
 
-def evaluateRandomly(encoder, decoder, n=10):
+def evaluateRandomly(encoder, decoder, mapper, n=10):
     for i in range(n):
         pair = random.choice(pairs)
         print('T: ', pair[0])
         print('Q: ', pair[1])
 
-        output_words = evaluate(encoder, decoder, pair[0])
+        output_words = evaluate(encoder, decoder, pair[0], mapper)
         output_question = ' '.join(output_words)
-        print('Q? ', output_sentence)
+        print('Q? ', output_question)
         print(' ')
 
 hidden_size = 256
-mapper = WordIndexMapper("word_to_index.pkl", "index_to_word.pkl", "word_tou_count.pkl")
+mapper = WordIndexMapper("word_to_index.pkl", "index_to_word.pkl", "word_to_count.pkl")
 encoder1 = EncoderRNN(mapper.n_words, hidden_size).to(device)
-decoder1 = DecoderRNN(hidden_size, mapper.n_words, dropout_p=0.1).to(device)
-pairs = squad_loader.prepare_pairs()
-trainIters(encoder1, decoder1, 75000, print_every=5000)
+decoder1 = DecoderRNN(hidden_size, mapper.n_words).to(device)
+trainIters(encoder1, decoder1, 100, mapper, print_every=5000)
+evaluateRandomly(encoder1, decoder1, mapper)
