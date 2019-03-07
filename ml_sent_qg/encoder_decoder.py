@@ -163,7 +163,6 @@ def evaluate(encoder, decoder, paragraph, indexer, max_length=MAX_LENGTH):
             decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
             topv, topi = decoder_output.data.topk(1)
             if topi.item() == EOS_TOKEN:
-                decoded_words.append('<EOS')
                 break
             else:
                 decoded_words.append(indexer.index2word[topi.item()])
@@ -182,9 +181,10 @@ def evaluateRandomly(encoder, decoder, mapper, n=10):
         print('Q? ', output_question)
         print(' ')
 
+print(len(pairs))
 hidden_size = 256
 mapper = WordIndexMapper("word_to_index.pkl", "index_to_word.pkl", "word_to_count.pkl")
 encoder1 = EncoderRNN(mapper.n_words, hidden_size).to(device)
 decoder1 = DecoderRNN(hidden_size, mapper.n_words).to(device)
-trainIters(encoder1, decoder1, 100, mapper, print_every=5000)
+trainIters(encoder1, decoder1, 600, mapper, print_every=5000)
 evaluateRandomly(encoder1, decoder1, mapper)
