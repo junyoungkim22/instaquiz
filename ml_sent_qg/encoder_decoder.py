@@ -1,8 +1,9 @@
 import torch
 import torch.nn as nn
-import word_index_mapper
+from word_index_mapper import WordIndexMapper
 import time
 import math
+import squad_loader
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 MAX_LENGTH = 1000
@@ -172,3 +173,9 @@ def evaluateRandomly(encoder, decoder, n=10):
         print('Q? ', output_sentence)
         print(' ')
 
+hidden_size = 256
+mapper = WordIndexMapper("word_to_index.pkl", "index_to_word.pkl", "word_tou_count.pkl")
+encoder1 = EncoderRNN(mapper.n_words, hidden_size).to(device)
+decoder1 = DecoderRNN(hidden_size, mapper.n_words, dropout_p=0.1).to(device)
+pairs = squad_loader.prepare_pairs()
+trainIters(encoder1, decoder1, 75000, print_every=5000)

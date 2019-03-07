@@ -35,6 +35,15 @@ def process_file(file_name):
                 ret.append((context, context_qas))
         return ret
 
+def prepare_pairs():
+    data = process_file("train-v2.0.json")
+    pairs = []
+    for context, context_qas in data:
+        for question, answers in context_qas:
+            pairs.append((context, question))]
+    return pairs
+
+
 def test():
     data = process_file("train-v2.0.json")
     i = 0
