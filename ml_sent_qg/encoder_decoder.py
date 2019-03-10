@@ -14,7 +14,8 @@ from  global_token import EOS_TOKEN, SOS_TOKEN
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 MAX_LENGTH = 1000
 data = squad_loader.process_file("train-v2.0.json")
-pairs = squad_loader.prepare_pairs(data)
+#pairs = squad_loader.prepare_pairs(data)
+pairs = squad_loader.prepare_ans_tagged_pairs(data)
 teacher_forcing_ratio = 0.5
 
 class EncoderRNN(nn.Module):

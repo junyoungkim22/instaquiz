@@ -90,6 +90,7 @@ class WordIndexMapper:
             try:
                 ret.append(self.word2index[word])
             except KeyError:
+                ret.append(self.word2index["<unk>"])
                 continue
         return ret
 
@@ -112,7 +113,7 @@ class WordIndexMapper:
         #s = self.unicodeToAscii(s.lower().strip())
         s = s.lower().strip()
         s = re.sub(r"([.!?])", r" \1", s)
-        s = re.sub(r"[^a-zA-Z.!?]+", r" ", s)
+        s = re.sub(r"[^a-zA-Z.!?<>]+", r" ", s)
         return s
 
     def paragraph_test(self, para):
@@ -148,7 +149,7 @@ def test():
         else:
             maker.paragraph_test(context)
             i += 1
-            if i == limit + 100:
+            if i == limit + 300:
                 break
     print(len(maker.word2index))
     maker.save()

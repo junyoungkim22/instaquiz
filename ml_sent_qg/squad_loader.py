@@ -64,7 +64,7 @@ def ans_tag_test():
         print(question)
         print("*"*80)
 
-ans_tag_test()
+#ans_tag_test()
 
 def test():
     data = process_file("train-v2.0.json")
