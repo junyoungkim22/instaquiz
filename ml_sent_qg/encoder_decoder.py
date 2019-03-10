@@ -13,7 +13,8 @@ from  global_token import EOS_TOKEN, SOS_TOKEN
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 MAX_LENGTH = 1000
-pairs = squad_loader.prepare_pairs()
+data = squad_loader.process_file("train-v2.0.json")
+pairs = squad_loader.prepare_pairs(data)
 teacher_forcing_ratio = 0.5
 
 class EncoderRNN(nn.Module):
@@ -186,5 +187,5 @@ hidden_size = 256
 mapper = WordIndexMapper("word_to_index.pkl", "index_to_word.pkl", "word_to_count.pkl")
 encoder1 = EncoderRNN(mapper.n_words, hidden_size).to(device)
 decoder1 = DecoderRNN(hidden_size, mapper.n_words).to(device)
-trainIters(encoder1, decoder1, 600, mapper, print_every=5000)
+trainIters(encoder1, decoder1, 1500, mapper, print_every=5000)
 evaluateRandomly(encoder1, decoder1, mapper)

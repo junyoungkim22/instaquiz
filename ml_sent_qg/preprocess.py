@@ -19,6 +19,7 @@ def indexesFromSentence(indexer, sentence):
         try:
             ret.append(indexer.word2index[word])
         except KeyError:
+            ret.append(indexer.word2index["<unk>"])
             continue
     return ret
 

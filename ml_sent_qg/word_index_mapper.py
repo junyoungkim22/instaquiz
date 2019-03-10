@@ -62,10 +62,10 @@ class WordIndexMapper:
 
     def reset(self):
         output = open(self.w2i_filename, 'wb')
-        pickle.dump({"SOS": 0, "EOS": 1, "ANSS": 2, "ANSE": 3}, output)
+        pickle.dump({"<sos>": 0, "<eos>": 1, "<anss>": 2, "<anse>": 3, "<unk>": 4}, output)
         output.close()
         output = open(self.i2w_filename, 'wb')
-        pickle.dump({0: "SOS", 1: "EOS", 2: "ANSS", 3: "ANSE"}, output)
+        pickle.dump({0: "<sos>", 1: "<eos>", 2: "<anss>", 3: "<anse>", 4: "<unk>"}, output)
         output.close()
         output = open(self.w2c_filename, 'wb')
         pickle.dump({}, output)

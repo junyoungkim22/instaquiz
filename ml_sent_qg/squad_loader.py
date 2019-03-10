@@ -2,6 +2,7 @@ import simplejson as json
 from tqdm import tqdm
 import spacy
 import sys
+import random
 
 '''
 This file is taken and modified from
@@ -35,14 +36,35 @@ def process_file(file_name):
                 ret.append((context, context_qas))
         return ret
 
-def prepare_pairs():
-    data = process_file("train-v2.0.json")
+def prepare_pairs(data):
     pairs = []
     for context, context_qas in data:
         for question, answers in context_qas:
             pairs.append((context, question))
     return pairs
 
+def prepare_ans_tagged_pairs(data):
+    pairs = []
+    for context, context_qas in data:
+        for question, answers in context_qas:
+            for ans_txt, (answer_start, answer_end) in answers:
+                tagged_context = context[:answer_end] + " <anse> " + context[answer_end:]
+                tagged_context = tagged_context[:answer_start] + " <anss> " + tagged_context[answer_start:]
+                pairs.append((tagged_context, question))
+    return pairs
+
+def ans_tag_test():
+    data = process_file("train-v2.0.json")
+    ans_tag_pairs = prepare_ans_tagged_pairs(data)
+    for i in range(10):
+        pair = random.choice(ans_tag_pairs)
+        context, question = pair
+        print(context)
+        print("&"*80)
+        print(question)
+        print("*"*80)
+
+ans_tag_test()
 
 def test():
     data = process_file("train-v2.0.json")
