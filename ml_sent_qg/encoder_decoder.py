@@ -172,7 +172,7 @@ def evaluate(encoder, decoder, paragraph, indexer, max_length=MAX_LENGTH):
             decoder_input = topi.squeeze().detach()
         return decoded_words
 
-def evaluateRandomly(encoder, decoder, mapper, n=10):
+def evaluateRandomly(encoder, decoder, mapper, n=100):
     for i in range(n):
         pair = random.choice(pairs)
         print('T: ', pair[0])
@@ -188,5 +188,5 @@ hidden_size = 256
 mapper = WordIndexMapper("word_to_index.pkl", "index_to_word.pkl", "word_to_count.pkl")
 encoder1 = EncoderRNN(mapper.n_words, hidden_size).to(device)
 decoder1 = DecoderRNN(hidden_size, mapper.n_words).to(device)
-trainIters(encoder1, decoder1, 1500, mapper, print_every=5000)
+trainIters(encoder1, decoder1, 450, mapper, print_every=5000)
 evaluateRandomly(encoder1, decoder1, mapper)

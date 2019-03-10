@@ -53,6 +53,22 @@ def prepare_ans_tagged_pairs(data):
                 pairs.append((tagged_context, question))
     return pairs
 
+def prepare_ans_sent_pairs(data):
+    pairs = prepare_ans_tagged_pairs(data)
+    new_pairs = []
+    for pair in pairs:
+        context, question = pair
+        new_sentences = []
+        for sent in context.split('.'):
+            if "<anss>" in sent:
+                new_sentences.append(sent)
+            elif "<anse>" in sent:
+                new_sentences.append(sent)
+        new_context = ' '.join(new_sentences)
+        new_pairs.append((new_context, question))
+    return new_pairs
+                
+
 def ans_tag_test():
     data = process_file("train-v2.0.json")
     ans_tag_pairs = prepare_ans_tagged_pairs(data)
@@ -63,6 +79,15 @@ def ans_tag_test():
         print("&"*80)
         print(question)
         print("*"*80)
+
+def print_pairs(pairs):
+    for i in range(50):
+        pair = random.choice(pairs)
+        context, question = pair
+        print(context)
+        print('&'*80)
+        print(question)
+        print('*'*80)
 
 #ans_tag_test()
 
