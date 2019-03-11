@@ -29,7 +29,7 @@ class WordIndexMapper:
         self.word2count = pickle.load(w2c_pkl_file)
         w2c_pkl_file.close()
         self.n_words = len(self.word2index)
-        self.device = torch.device("cude" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
     def addParagraph(self, para):
         paragraph = self.normalizeString(para)
