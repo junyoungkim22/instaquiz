@@ -12,10 +12,11 @@ from word_index_mapper import WordIndexMapper
 from  global_token import EOS_TOKEN, SOS_TOKEN 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-MAX_LENGTH = 1000
+MAX_LENGTH = 500
 data = squad_loader.process_file("train-v2.0.json")
 #pairs = squad_loader.prepare_pairs(data)
-pairs = squad_loader.prepare_ans_tagged_pairs(data)
+#pairs = squad_loader.prepare_ans_tagged_pairs(data)
+pairs = squad_loader.prepare_ans_sent_pairs(data)
 teacher_forcing_ratio = 0.5
 
 class EncoderRNN(nn.Module):
@@ -137,7 +138,8 @@ def trainIters(encoder, decoder, n_iters, indexer, print_every=1000, plot_every=
         if iter % print_every == 0:
             print_loss_avg = print_loss_total / print_every
             print_loss_total = 0
-            print('%s (%d %d%%) %.4f' % (timeSince(start, iter / n_iters), iter, iter / n_iters * 100, print_loss_avg))
+            #print('%s (%d %d%%) %.4f' % (timeSince(start, iter / n_iters), iter, iter / n_iters * 100, print_loss_avg))
+            print (print_loss_avg)
 
             if iter % plot_every == 0:
                 plot_loss_avg = plot_loss_total / plot_every
@@ -188,5 +190,5 @@ hidden_size = 256
 mapper = WordIndexMapper("word_to_index.pkl", "index_to_word.pkl", "word_to_count.pkl")
 encoder1 = EncoderRNN(mapper.n_words, hidden_size).to(device)
 decoder1 = DecoderRNN(hidden_size, mapper.n_words).to(device)
-trainIters(encoder1, decoder1, 450, mapper, print_every=5000)
+trainIters(encoder1, decoder1, 10000, mapper, print_every=100, plot_every=100)
 evaluateRandomly(encoder1, decoder1, mapper)
