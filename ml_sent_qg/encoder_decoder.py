@@ -12,7 +12,7 @@ from word_index_mapper import WordIndexMapper
 from  global_token import EOS_TOKEN, SOS_TOKEN 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-MAX_LENGTH = 70
+MAX_LENGTH = 100
 data = squad_loader.process_file("train-v2.0.json")
 #pairs = squad_loader.prepare_pairs(data)
 #pairs = squad_loader.prepare_ans_tagged_pairs(data)
@@ -104,6 +104,9 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
     encoder_outputs = torch.zeros(max_length, encoder.hidden_size, device=device)
 
     loss = 0
+
+    if input_length > max_length:
+        input_length = max_length
 
     for ei in range(input_length):
         encoder_output, encoder_hidden = encoder(input_tensor[ei], encoder_hidden)
