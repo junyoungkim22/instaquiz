@@ -186,13 +186,16 @@ def trainIters(encoder, decoder, n_iters, indexer, use_attention, print_every=10
                 plot_losses.append(plot_loss_avg)
                 plot_loss_total = 0
 
-def evaluate(encoder, decoder, paragraph, indexer, use_attentionmax_length=MAX_LENGTH):
+def evaluate(encoder, decoder, paragraph, indexer, use_attention, max_length=MAX_LENGTH):
     with torch.no_grad():
         input_tensor = indexer.tensorFromParagraph(paragraph)
         input_length = input_tensor.size()[0]
         encoder_hidden = encoder.initHidden()
 
         encoder_outputs = torch.zeros(max_length, encoder.hidden_size, device=device)
+
+        if input_length > max_length:
+            input_length = max_length
 
         for ei in range(input_length):
             encoder_output, encoder_hidden = encoder(input_tensor[ei], encoder_hidden)
@@ -216,15 +219,15 @@ def evaluate(encoder, decoder, paragraph, indexer, use_attentionmax_length=MAX_L
                 decoded_words.append(indexer.index2word[topi.item()])
 
             decoder_input = topi.squeeze().detach()
-        return decoded_words, decoder_attentioms[:di + 1]
+        return decoded_words, decoder_attentions[:di + 1]
 
-def evaluateRandomly(encoder, decoder, mapper, n=100):
+def evaluateRandomly(encoder, decoder, mapper, use_attention, n=100):
     for i in range(n):
         pair = random.choice(pairs)
         print('T: ', pair[0])
         print('Q: ', pair[1])
 
-        output_words, attentions = evaluate(encoder, decoder, pair[0], mapper)
+        output_words, attentions = evaluate(encoder, decoder, pair[0], mapper, use_attention)
         output_question = ' '.join(output_words)
         print('Q? ', output_question)
         print(' ')
@@ -235,5 +238,5 @@ mapper = WordIndexMapper("word_to_index.pkl", "index_to_word.pkl", "word_to_coun
 encoder1 = EncoderRNN(mapper.n_words, hidden_size).to(device)
 decoder1 = DecoderRNN(hidden_size, mapper.n_words).to(device)
 attn_decoder1 = AttnDecoderRNN(hidden_size, mapper.n_words).to(device)
-trainIters(encoder1, attn_decoder1, 10, mapper, True, print_every=100, plot_every=100)
-evaluateRandomly(encoder1, decoder1, mapper)
+trainIters(encoder1, attn_decoder1, 5000, mapper, True, print_every=100, plot_every=100)
+evaluateRandomly(encoder1, attn_decoder1, mapper, True)
