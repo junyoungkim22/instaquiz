@@ -10,8 +10,12 @@ data = squad_loader.process_file("train-v2.0.json")
 #pairs = squad_loader.prepare_ans_tagged_pairs(data)
 pairs = squad_loader.prepare_ans_sent_pairs(data)
 
-squad_loader.print_pairs(pairs)
+#squad_loader.print_pairs(pairs)
 
-test_tensor = mapper.tensorFromSentence("Here is my dog!")
-print test_tensor
-print test_tensor.size(0)
+pair = random.choice(pairs)
+context, question = pair
+print(mapper.normalizeString(question))
+
+print(pair)
+print(mapper.tensorsFromPair(pair))
+
