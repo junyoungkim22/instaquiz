@@ -5,7 +5,6 @@ from torch import optim
 import time
 import math
 import random
-import sys
 from tqdm import tqdm
 
 import squad_loader
@@ -236,11 +235,11 @@ def evaluateRandomly(encoder, decoder, mapper, use_attention, n=100):
         print('Q? ', output_question)
         print(' ')
 
-print(len(pairs))
-hidden_size = 256
-mapper = WordIndexMapper("word_to_index.pkl", "index_to_word.pkl", "word_to_count.pkl")
-encoder1 = EncoderRNN(mapper.n_words, hidden_size).to(device)
-decoder1 = DecoderRNN(hidden_size, mapper.n_words).to(device)
-attn_decoder1 = AttnDecoderRNN(hidden_size, mapper.n_words).to(device)
-trainIters(encoder1, attn_decoder1, int(sys.argv[1]), mapper, True, print_every=100, plot_every=100)
-evaluateRandomly(encoder1, attn_decoder1, mapper, True)
+def model_train_test(n_iters):
+    hidden_size = 256
+    mapper = WordIndexMapper("word_to_index.pkl", "index_to_word.pkl", "word_to_count.pkl")
+    encoder1 = EncoderRNN(mapper.n_words, hidden_size).to(device)
+    decoder1 = DecoderRNN(hidden_size, mapper.n_words).to(device)
+    attn_decoder1 = AttnDecoderRNN(hidden_size, mapper.n_words).to(device)
+    trainIters(encoder1, attn_decoder1, n_iters, mapper, True, print_every=1000, plot_every=1000)
+    evaluateRandomly(encoder1, attn_decoder1, mapper, True)
