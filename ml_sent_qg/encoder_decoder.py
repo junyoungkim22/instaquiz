@@ -1,3 +1,4 @@
+from __future__ import division
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -5,7 +6,6 @@ from torch import optim
 import time
 import math
 import random
-from tqdm import tqdm
 
 import squad_loader
 from word_index_mapper import WordIndexMapper
@@ -169,7 +169,7 @@ def trainIters(encoder, decoder, n_iters, indexer, use_attention, print_every=10
     training_pairs = [indexer.tensorsFromPair(random.choice(pairs)) for i in range(n_iters)]
     criterion = nn.NLLLoss()
 
-    for iter in tqdm(range(1, n_iters + 1)):
+    for iter in range(1, n_iters + 1):
         training_pair = training_pairs[iter-1]
         input_tensor = training_pair[0]
         target_tensor = training_pair[1]
@@ -181,7 +181,7 @@ def trainIters(encoder, decoder, n_iters, indexer, use_attention, print_every=10
         if iter % print_every == 0:
             print_loss_avg = print_loss_total / print_every
             print_loss_total = 0
-            #print('%s (%d %d%%) %.4f' % (timeSince(start, iter / n_iters), iter, iter / n_iters * 100, print_loss_avg))
+            print('%s (%d %d%%) %.4f' % (timeSince(start, iter / n_iters), iter, iter / n_iters * 100, print_loss_avg))
             print (print_loss_avg)
 
             if iter % plot_every == 0:
@@ -235,11 +235,11 @@ def evaluateRandomly(encoder, decoder, mapper, use_attention, n=100):
         print('Q? ', output_question)
         print(' ')
 
-def model_train_test(n_iters):
+def model_train_test(n_iters, print_every):
     hidden_size = 256
     mapper = WordIndexMapper("word_to_index.pkl", "index_to_word.pkl", "word_to_count.pkl")
     encoder1 = EncoderRNN(mapper.n_words, hidden_size).to(device)
     decoder1 = DecoderRNN(hidden_size, mapper.n_words).to(device)
     attn_decoder1 = AttnDecoderRNN(hidden_size, mapper.n_words).to(device)
-    trainIters(encoder1, attn_decoder1, n_iters, mapper, True, print_every=1000, plot_every=1000)
+    trainIters(encoder1, attn_decoder1, n_iters, mapper, True, print_every, plot_every=1000)
     evaluateRandomly(encoder1, attn_decoder1, mapper, True)

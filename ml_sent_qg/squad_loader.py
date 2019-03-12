@@ -19,7 +19,8 @@ def process_file(file_name):
     with open("data/" + file_name, "r") as data_file:
         source = json.load(data_file)
         ret = []
-        for article in tqdm(source["data"]):
+        print("Processing SquAD dataset...")
+        for article in source["data"]:
             for para in article["paragraphs"]:
                 context = para["context"].replace("''", '" ').replace("``", '" ')
                 #context_tokens = word_tokenize(context)
@@ -34,6 +35,7 @@ def process_file(file_name):
                         ans_txt_pos.append((answer_text, (answer_start, answer_end)))
                     context_qas.append((question, ans_txt_pos))
                 ret.append((context, context_qas))
+        print("Processing done!")
         return ret
 
 def prepare_pairs(data):
