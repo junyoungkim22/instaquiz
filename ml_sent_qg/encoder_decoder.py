@@ -244,12 +244,12 @@ def model_train_test(n_iters, print_every):
     trainIters(encoder1, attn_decoder1, n_iters, mapper, True, print_every, plot_every=1000)
     evaluateRandomly(encoder1, attn_decoder1, mapper, True)
 
-def load_models():
+def load_models(PATH):
     hidden_size = 256
     mapper = WordIndexMapper("word_to_index.pkl", "index_to_word.pkl", "word_to_count.pkl")
     encoder = EncoderRNN(mapper.n_words, hidden_size).to(device)
     attn_decoder = AttnDecoderRNN(hidden_size, mapper.n_words).to(device)
-    encoder.load_state_dict(torch.load("50k_encoder"))
-    attn_decoder.load_state_dict(torch.load("50k_decoder"))
+    encoder.load_state_dict(torch.load(PATH + "50k_encoder"))
+    attn_decoder.load_state_dict(torch.load(PATH + "50k_decoder"))
     evaluateRandomly(encoder, attn_decoder, mapper, True)
     
