@@ -315,7 +315,7 @@ def model_train_test(n_iters, print_every):
     mapper = WordIndexMapper("word_to_index.pkl", "index_to_word.pkl", "word_to_count.pkl")
     #encoder1 = EncoderRNN(mapper.n_words, hidden_size).to(device)
     #decoder1 = DecoderRNN(hidden_size, mapper.n_words).to(device)
-    encoder = GloveEncoderRNN(mapper, hidden_size)
+    encoder = GloveEncoderRNN(mapper, hidden_size).to(device)
     #attn_decoder1 = AttnDecoderRNN(hidden_size, mapper.n_words).to(device)
     decoder = GloveAttnDecoderRNN(mapper, hidden_size).to(device)
     trainIters(encoder, decoder, n_iters, mapper, True, print_every, plot_every=1000)
