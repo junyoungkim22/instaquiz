@@ -1,2 +1,4 @@
 *.pyc
-ml_sent_qg/glove
+ml_sent_qg/glove/*.pkl
+ml_sent_qg/glove/*.txt
+
