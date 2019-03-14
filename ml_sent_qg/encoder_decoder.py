@@ -6,10 +6,12 @@ from torch import optim
 import time
 import math
 import random
+import numpy as np
 
 import squad_loader
 from word_index_mapper import WordIndexMapper
 from  global_token import EOS_TOKEN, SOS_TOKEN 
+from glove_loader import create_glove_vect_dict
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 MAX_LENGTH = 100
@@ -18,6 +20,79 @@ data = squad_loader.process_file("train-v2.0.json")
 #pairs = squad_loader.prepare_ans_tagged_pairs(data)
 pairs = squad_loader.prepare_ans_sent_pairs(data)
 teacher_forcing_ratio = 0.5
+
+def make_weights_matrix(mapper, emb_dim):
+    matrix_len = mapper.n_words
+    weights_matrix = np.zeros(shape=(matrix_len, emb_dim))
+    words_found = 0
+    glove = create_glove_vect_dict()
+    for i, word in enumerate(mapper.word2index):
+        try:
+            weights_matrix[i] = glove[word]
+            words_found += 1
+        except KeyError:
+            weights_matrix[i] = np.random.normal(scale=0.6, size=(emb_dim, ))
+    return torch.from_numpy(weights_matrix)
+
+def create_emb_layer(weights_matrix, non_trainable=False):
+    num_embeddings, embedding_dim = weights_matrix.size()
+    emb_layer = nn.Embedding(num_embeddings, embedding_dim)
+    emb_layer.load_state_dict({'weight': weights_matrix})
+    if non_trainable:
+        emb_layer.weight_requires_grad = False
+    return emb_layer
+
+class GloveEncoderRNN(nn.Module):
+    def __init__(self, mapper, hidden_size):
+        super(GloveEncoderRNN, self).__init__()
+        self.hidden_size = hidden_size
+        self.embedding = create_emb_layer(make_weights_matrix(mapper, hidden_size), True)
+        self.gru = nn.GRU(hidden_size, hidden_size)
+        self.device = device
+
+    def forward(self, input, hidden):
+        embedded = self.embedding(input).view(1, 1, -1)
+        output = embedded
+        output, hidden = self.gru(output, hidden)
+        return output, hidden
+
+    def initHidden(self):
+        return torch.zeros(1, 1, self.hidden_size, device=self.device)
+        
+class GloveAttnDecoderRNN(nn.Module):
+    def __init__(self, mapper, hidden_size, dropout_p=0.1, max_length=MAX_LENGTH):
+        super(GloveAttnDecoderRNN, self).__init__()
+        self.hidden_size = hidden_size
+        self.output_size = mapper.n_words
+        self.dropout_p = dropout_p
+        self.max_length = max_length
+
+        self.embedding = create_emb_layer(make_weights_matrix(mapper, hidden_size), True)
+        self.attn = nn.Linear(self.hidden_size * 2, self.max_length)
+        self.attn_combine = nn.Linear(self.hidden_size * 2, self.hidden_size)
+        self.dropout = nn.Dropout(self.dropout_p)
+        self.gru = nn.GRU(self.hidden_size, self.hidden_size)
+        self.out = nn.Linear(self.hidden_size, self.output_size)
+
+    def forward(self, input, hidden, encoder_outputs):
+        embedded = self.embedding(input).view(1, 1, -1)
+        embedded = self.dropout(embedded)
+
+        attn_weights = F.softmax(self.attn(torch.cat((embedded[0], hidden[0]), 1)), dim=1)
+        attn_applied = torch.bmm(attn_weights.unsqueeze(0), encoder_outputs.unsqueeze(0))
+
+        output = torch.cat((embedded[0], hidden[0]), 1)
+        output = self.attn_combine(output).unsqueeze(0)
+
+        output = F.relu(output)
+        output, hidden = self.gru(output, hidden)
+
+        output = F.log_softmax(self.out(output[0]), dim=1)
+        return output, hidden, attn_weights
+
+    def initHidden(self):
+        return torch.zeros(1, 1, self.hidden_size, device=device)
+
 
 class EncoderRNN(nn.Module):
     def __init__(self, input_size, hidden_size):
@@ -236,13 +311,15 @@ def evaluateRandomly(encoder, decoder, mapper, use_attention, n=100):
         print(' ')
 
 def model_train_test(n_iters, print_every):
-    hidden_size = 256
+    hidden_size = 200
     mapper = WordIndexMapper("word_to_index.pkl", "index_to_word.pkl", "word_to_count.pkl")
-    encoder1 = EncoderRNN(mapper.n_words, hidden_size).to(device)
-    decoder1 = DecoderRNN(hidden_size, mapper.n_words).to(device)
-    attn_decoder1 = AttnDecoderRNN(hidden_size, mapper.n_words).to(device)
-    trainIters(encoder1, attn_decoder1, n_iters, mapper, True, print_every, plot_every=1000)
-    evaluateRandomly(encoder1, attn_decoder1, mapper, True)
+    #encoder1 = EncoderRNN(mapper.n_words, hidden_size).to(device)
+    #decoder1 = DecoderRNN(hidden_size, mapper.n_words).to(device)
+    encoder = GloveEncoderRNN(mapper, hidden_size)
+    #attn_decoder1 = AttnDecoderRNN(hidden_size, mapper.n_words).to(device)
+    decoder = GloveAttnDecoderRNN(mapper, hidden_size).to(device)
+    trainIters(encoder, decoder, n_iters, mapper, True, print_every, plot_every=1000)
+    evaluateRandomly(encoder, decoder, mapper, True)
 
 def load_models(PATH):
     hidden_size = 256
