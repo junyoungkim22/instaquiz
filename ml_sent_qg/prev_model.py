@@ -12,13 +12,13 @@ import squad_loader
 from word_index_mapper import WordIndexMapper
 from  global_var import PAIRS, DEVICE, MAPPER, TFR, MAX_LENGTH
 from txt_token import SOS_TOKEN, EOS_TOKEN
-from glove_loader import create_glove_vect_dict, create_emb_layer
 
-class GloveEncoderRNN(nn.Module):
-    def __init__(self, hidden_size):
-        super(GloveEncoderRNN, self).__init__()
+class EncoderRNN(nn.Module):
+    def __init__(self, input_size, hidden_size):
+        super(EncoderRNN, self).__init__()
         self.hidden_size = hidden_size
-        self.embedding = create_emb_layer(hidden_size, True)
+
+        self.embedding = nn.Embedding(input_size, hidden_size)
         self.gru = nn.GRU(hidden_size, hidden_size)
         self.device = DEVICE
 
@@ -30,16 +30,36 @@ class GloveEncoderRNN(nn.Module):
 
     def initHidden(self):
         return torch.zeros(1, 1, self.hidden_size, device=self.device)
-        
-class GloveAttnDecoderRNN(nn.Module):
-    def __init__(self, hidden_size, dropout_p=0.1, max_length=MAX_LENGTH):
-        super(GloveAttnDecoderRNN, self).__init__()
+
+class DecoderRNN(nn.Module):
+    def __init__(self, hidden_size, output_size):
+        super(DecoderRNN, self).__init__()
         self.hidden_size = hidden_size
-        self.output_size = MAPPER.n_words
+
+        self.embedding = nn.Embedding(output_size, hidden_size)
+        self.gru = nn.GRU(hidden_size, hidden_size)
+        self.out = nn.Linear(hidden_size, output_size)
+        self.softmax = nn.LogSoftmax(dim=1)
+
+    def forward(self, input, hidden):
+        output = self.embedding(input).view(1, 1, -1)
+        output = F.relu(output)
+        output, hidden = self.gru(output, hidden)
+        output = self.softmax(self.out(output[0]))
+        return output, hidden
+
+    def initHidden(self):
+        return torch.zeros(1, 1, self.hidden_size, device=device)
+
+class AttnDecoderRNN(nn.Module):
+    def __init__(self, hidden_size, output_size, dropout_p=0.1, max_length=MAX_LENGTH):
+        super(AttnDecoderRNN, self).__init__()
+        self.hidden_size = hidden_size
+        self.output_size = output_size
         self.dropout_p = dropout_p
         self.max_length = max_length
 
-        self.embedding = create_emb_layer(hidden_size, True)
+        self.embedding = nn.Embedding(self.output_size, self.hidden_size)
         self.attn = nn.Linear(self.hidden_size * 2, self.max_length)
         self.attn_combine = nn.Linear(self.hidden_size * 2, self.hidden_size)
         self.dropout = nn.Dropout(self.dropout_p)
@@ -63,8 +83,7 @@ class GloveAttnDecoderRNN(nn.Module):
         return output, hidden, attn_weights
 
     def initHidden(self):
-        return torch.zeros(1, 1, self.hidden_size, device=device)
-
+        return torch.zeros(1, 1, self.hidden_size, device=DEVICE)
 
 def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length=MAX_LENGTH):
     encoder_hidden = encoder.initHidden()
@@ -94,12 +113,12 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
 
     if use_teacher_forcing:
         for di in range(target_length):
-            decoder_output, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_hidden, encoder_outputs)
+            decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
             loss += criterion(decoder_output, target_tensor[di])
             decoder_input = target_tensor[di]
     else:
         for di in range(target_length):
-            decoder_output, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_hidden, encoder_outputs)
+            decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden)
             topv, topi = decoder_output.topk(1)
             decoder_input = topi.squeeze().detach()
 
@@ -156,67 +175,3 @@ def trainIters(encoder, decoder, n_iters, print_every=1000, plot_every=100, lear
                 plot_loss_avg = plot_loss_total / plot_every
                 plot_losses.append(plot_loss_avg)
                 plot_loss_total = 0
-
-def evaluate(encoder, decoder, paragraph, max_length=MAX_LENGTH):
-    with torch.no_grad():
-        input_tensor = MAPPER.tensorFromParagraph(paragraph)
-        input_length = input_tensor.size()[0]
-        encoder_hidden = encoder.initHidden()
-
-        encoder_outputs = torch.zeros(max_length, encoder.hidden_size, device=DEVICE)
-
-        if input_length > max_length:
-            input_length = max_length
-
-        for ei in range(input_length):
-            encoder_output, encoder_hidden = encoder(input_tensor[ei], encoder_hidden)
-            encoder_outputs[ei] += encoder_output[0, 0]
-        decoder_input = torch.tensor([[SOS_TOKEN]], device=DEVICE)
-
-        decoder_hidden = encoder_hidden
-
-        decoded_words = []
-        decoder_attentions = torch.zeros(max_length, max_length)
-        
-        for di in range(max_length):
-            decoder_output, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_hidden, encoder_outputs)
-            topv, topi = decoder_output.data.topk(1)
-            if topi.item() == EOS_TOKEN:
-                break
-            else:
-                decoded_words.append(MAPPER.index2word[topi.item()])
-
-            decoder_input = topi.squeeze().detach()
-        return decoded_words, decoder_attentions[:di + 1]
-
-def evaluateRandomly(encoder, decoder, n=100):
-    for i in range(n):
-        pair = random.choice(PAIRS)
-        print('T: ', pair[0])
-        print('Q: ', pair[1])
-
-        output_words, attentions = evaluate(encoder, decoder, pair[0])
-        output_question = ' '.join(output_words)
-        print('Q? ', output_question)
-        print(' ')
-
-def model_train_test(n_iters, print_every):
-    hidden_size = 200
-    mapper = WordIndexMapper("word_to_index.pkl", "index_to_word.pkl", "word_to_count.pkl")
-    #encoder1 = EncoderRNN(mapper.n_words, hidden_size).to(device)
-    #decoder1 = DecoderRNN(hidden_size, mapper.n_words).to(device)
-    encoder = GloveEncoderRNN(hidden_size).to(DEVICE)
-    #attn_decoder1 = AttnDecoderRNN(hidden_size, mapper.n_words).to(device)
-    decoder = GloveAttnDecoderRNN(hidden_size).to(DEVICE)
-    trainIters(encoder, decoder, n_iters, print_every, plot_every=1000)
-    evaluateRandomly(encoder, decoder)
-
-def load_models(PATH):
-    hidden_size = 256
-    mapper = WordIndexMapper("word_to_index.pkl", "index_to_word.pkl", "word_to_count.pkl")
-    encoder = EncoderRNN(mapper.n_words, hidden_size).to(DEVICE)
-    attn_decoder = AttnDecoderRNN(hidden_size, mapper.n_words).to(device)
-    encoder.load_state_dict(torch.load(PATH + "50k_encoder"))
-    attn_decoder.load_state_dict(torch.load(PATH + "50k_decoder"))
-    evaluateRandomly(encoder, attn_decoder, mapper, True)
-    
