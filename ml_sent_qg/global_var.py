@@ -1,6 +1,7 @@
 import squad_loader
 import torch
-from word_index_mapper import WordIndexMapper
+import random
+from word_index_mapper import WordIndexMapper, make_dictionary
 
 MAX_LENGTH = 100
 
@@ -11,3 +12,16 @@ MAPPER = WordIndexMapper("word_to_index.pkl", "index_to_word.pkl", "word_to_coun
 
 #TFR is teacher forcing ratio
 TFR = 0.5
+
+def remake_dictionary():
+    reset_maker = WordIndexMapper("word_to_index.pkl", "index_to_word.pkl", "word_to_count.pkl")
+    reset_maker.reset()
+    make_dictionary()
+
+def para2tensor_test():
+    pair = random.choice(PAIRS)
+    context, question = pair
+    print(MAPPER.normalizeString(question))
+
+    print(pair)
+    print(MAPPER.tensorsFromPair(pair))
