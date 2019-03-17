@@ -10,35 +10,15 @@ import numpy as np
 
 import squad_loader
 from word_index_mapper import WordIndexMapper
-from  global_var import EOS_TOKEN, SOS_TOKEN, PAIRS, DEVICE, TFR, MAX_LENGTH
-from glove_loader import create_glove_vect_dict
-
-def make_weights_matrix(mapper, emb_dim):
-    matrix_len = mapper.n_words
-    weights_matrix = np.zeros(shape=(matrix_len, emb_dim))
-    words_found = 0
-    glove = create_glove_vect_dict()
-    for i, word in enumerate(mapper.word2index):
-        try:
-            weights_matrix[i] = glove[word]
-            words_found += 1
-        except KeyError:
-            weights_matrix[i] = np.random.normal(scale=0.6, size=(emb_dim, ))
-    return torch.from_numpy(weights_matrix)
-
-def create_emb_layer(weights_matrix, non_trainable=False):
-    num_embeddings, embedding_dim = weights_matrix.size()
-    emb_layer = nn.Embedding(num_embeddings, embedding_dim)
-    emb_layer.load_state_dict({'weight': weights_matrix})
-    if non_trainable:
-        emb_layer.weight_requires_grad = False
-    return emb_layer
+from  global_var import PAIRS, DEVICE, MAPPER, TFR, MAX_LENGTH
+from txt_token import SOS_TOKEN, EOS_TOKEN
+from glove_loader import create_glove_vect_dict, create_emb_layer
 
 class GloveEncoderRNN(nn.Module):
     def __init__(self, mapper, hidden_size):
         super(GloveEncoderRNN, self).__init__()
         self.hidden_size = hidden_size
-        self.embedding = create_emb_layer(make_weights_matrix(mapper, hidden_size), True)
+        self.embedding = create_emb_layer(hidden_size, True)
         self.gru = nn.GRU(hidden_size, hidden_size)
         self.device = DEVICE
 
@@ -59,7 +39,7 @@ class GloveAttnDecoderRNN(nn.Module):
         self.dropout_p = dropout_p
         self.max_length = max_length
 
-        self.embedding = create_emb_layer(make_weights_matrix(mapper, hidden_size), True)
+        self.embedding = create_emb_layer(hidden_size, True)
         self.attn = nn.Linear(self.hidden_size * 2, self.max_length)
         self.attn_combine = nn.Linear(self.hidden_size * 2, self.hidden_size)
         self.dropout = nn.Dropout(self.dropout_p)

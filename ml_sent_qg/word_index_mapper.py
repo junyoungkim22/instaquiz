@@ -3,7 +3,7 @@ import torch
 import pickle
 import re
 import unicodedata
-from global_var import SOS_TOKEN, EOS_TOKEN
+from txt_token import SOS_TOKEN, EOS_TOKEN
 
 dict_directory = "dictionary/"
 

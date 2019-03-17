@@ -1,7 +1,11 @@
 import pickle
 import bcolz
 import numpy as np
+import torch
+import torch.nn as nn
 from tqdm import tqdm
+
+from global_var import MAPPER
 
 glove_path = 'glove'
 glove_dim = '200'
@@ -37,3 +41,25 @@ def create_glove_vect_dict():
     words = pickle.load(open(glove_path +  '/6B.' + glove_dim + '_words.pkl', 'rb'))
     word2idx = pickle.load(open(glove_path +  '/6B.' + glove_dim + '_idx.pkl', 'rb'))
     return {w: vectors[word2idx[w]] for w in words}
+
+def make_weights_matrix(emb_dim):
+    matrix_len = MAPPER.n_words
+    weights_matrix = np.zeros(shape=(matrix_len, emb_dim))
+    words_found = 0
+    glove = create_glove_vect_dict()
+    for i, word in enumerate(MAPPER.word2index):
+        try:
+            weights_matrix[i] = glove[word]
+            words_found += 1
+        except KeyError:
+            weights_matrix[i] = np.random.normal(scale=0.6, size=(emb_dim, ))
+    return torch.from_numpy(weights_matrix)
+
+def create_emb_layer(emb_dim, non_trainable=False):
+    weights_matrix = make_weights_matrix(emb_dim)
+    num_embeddings, embedding_dim = weights_matrix.size()
+    emb_layer = nn.Embedding(num_embeddings, embedding_dim)
+    emb_layer.load_state_dict({'weight': weights_matrix})
+    if non_trainable:
+        emb_layer.weight_requires_grad = False
+    return emb_layer
