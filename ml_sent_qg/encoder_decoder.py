@@ -15,35 +15,47 @@ from txt_token import SOS_TOKEN, EOS_TOKEN
 from glove_loader import create_glove_vect_dict, create_emb_layer
 
 class GloveEncoderRNN(nn.Module):
-    def __init__(self, hidden_size):
+    def __init__(self, emb_dim):
         super(GloveEncoderRNN, self).__init__()
-        self.hidden_size = hidden_size
-        self.embedding = create_emb_layer(hidden_size, True)
-        self.gru = nn.GRU(hidden_size, hidden_size)
+        self.embedding_dim = emb_dim
+        self.hidden_size = 600
+        self.embedding = create_emb_layer(emb_dim, True)
+        self.gru = nn.GRU(emb_dim, self.hidden_size, num_layers=1, bidirectional=False)
+        self.lstm = nn.LSTM(emb_dim, self.hidden_size // 2, num_layers=1, bidirectional=True)
         self.device = DEVICE
 
     def forward(self, input, hidden):
-        embedded = self.embedding(input).view(1, 1, -1)
+        embedded = self.embedding(input).view(len(input), 1, -1)
         output = embedded
+        output, hidden = self.lstm(output, hidden)
         output, hidden = self.gru(output, hidden)
+        print ('Hidden')
+        h1, h2 = hidden
+        print (h1.size())
+        print (h2.size())
         return output, hidden
 
     def initHidden(self):
-        return torch.zeros(1, 1, self.hidden_size, device=self.device)
+        return (torch.randn(2, 1, self.hidden_size // 2), torch.randn(2, 1, self.hidden_size // 2))
+        #return torch.zeros(1, 1, self.hidden_size, device=self.device)
+        #return torch.zeros(4, 1, self.hidden_size // 4)
         
 class GloveAttnDecoderRNN(nn.Module):
-    def __init__(self, hidden_size, dropout_p=0.1, max_length=MAX_LENGTH):
+    def __init__(self, emb_dim, dropout_p=0.1, max_length=MAX_LENGTH):
         super(GloveAttnDecoderRNN, self).__init__()
-        self.hidden_size = hidden_size
+        self.embedding_dim = emb_dim
+        self.hidden_size = 600
         self.output_size = MAPPER.n_words
         self.dropout_p = dropout_p
         self.max_length = max_length
 
-        self.embedding = create_emb_layer(hidden_size, True)
+        self.embedding = create_emb_layer(emb_dim, True)
         self.attn = nn.Linear(self.hidden_size * 2, self.max_length)
         self.attn_combine = nn.Linear(self.hidden_size * 2, self.hidden_size)
         self.dropout = nn.Dropout(self.dropout_p)
-        self.gru = nn.GRU(self.hidden_size, self.hidden_size)
+        #self.gru = nn.GRU(self.hidden_size, self.hidden_size)
+        self.lstm = nn.LSTM(self.embedding_dim, self.hidden_size, num_layers=2, bidirectional=True)
+        
         self.out = nn.Linear(self.hidden_size, self.output_size)
 
     def forward(self, input, hidden, encoder_outputs):
@@ -57,7 +69,8 @@ class GloveAttnDecoderRNN(nn.Module):
         output = self.attn_combine(output).unsqueeze(0)
 
         output = F.relu(output)
-        output, hidden = self.gru(output, hidden)
+        #output, hidden = self.gru(output, hidden)
+        output, hidden = self.lstm(output, hidden)
 
         output = F.log_softmax(self.out(output[0]), dim=1)
         return output, hidden, attn_weights
@@ -198,16 +211,17 @@ def evaluateRandomly(encoder, decoder, n=100):
         output_words, attentions = evaluate(encoder, decoder, pair[0])
         output_question = ' '.join(output_words)
         print('Q? ', output_question)
+        print(attentions)
         print(' ')
 
 def model_train_test(n_iters, print_every):
-    hidden_size = 200
+    emb_dim = 200
     mapper = WordIndexMapper("word_to_index.pkl", "index_to_word.pkl", "word_to_count.pkl")
     #encoder1 = EncoderRNN(mapper.n_words, hidden_size).to(device)
     #decoder1 = DecoderRNN(hidden_size, mapper.n_words).to(device)
-    encoder = GloveEncoderRNN(hidden_size).to(DEVICE)
+    encoder = GloveEncoderRNN(emb_dim).to(DEVICE)
     #attn_decoder1 = AttnDecoderRNN(hidden_size, mapper.n_words).to(device)
-    decoder = GloveAttnDecoderRNN(hidden_size).to(DEVICE)
+    decoder = GloveAttnDecoderRNN(emb_dim).to(DEVICE)
     trainIters(encoder, decoder, n_iters, print_every, plot_every=1000)
     evaluateRandomly(encoder, decoder)
 
