@@ -3,7 +3,7 @@ import torch
 import pickle
 import re
 import unicodedata
-from global_token import SOS_TOKEN, EOS_TOKEN
+from global_var import SOS_TOKEN, EOS_TOKEN
 
 dict_directory = "dictionary/"
 
@@ -137,7 +137,7 @@ class WordIndexMapper:
                 hit_count += 1 
             return (hit_count, word_count) 
                                 
-def test():
+def make_dictionary():
     data = squad_loader.process_file("train-v2.0.json") 
     i = 0 
     limit = 13500

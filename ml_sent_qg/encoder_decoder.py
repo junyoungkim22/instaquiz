@@ -10,16 +10,8 @@ import numpy as np
 
 import squad_loader
 from word_index_mapper import WordIndexMapper
-from  global_token import EOS_TOKEN, SOS_TOKEN 
+from  global_var import EOS_TOKEN, SOS_TOKEN, PAIRS, DEVICE, TFR, MAX_LENGTH
 from glove_loader import create_glove_vect_dict
-
-device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-MAX_LENGTH = 100
-data = squad_loader.process_file("train-v2.0.json")
-#pairs = squad_loader.prepare_pairs(data)
-#pairs = squad_loader.prepare_ans_tagged_pairs(data)
-pairs = squad_loader.prepare_ans_sent_pairs(data)
-teacher_forcing_ratio = 0.5
 
 def make_weights_matrix(mapper, emb_dim):
     matrix_len = mapper.n_words
@@ -48,7 +40,7 @@ class GloveEncoderRNN(nn.Module):
         self.hidden_size = hidden_size
         self.embedding = create_emb_layer(make_weights_matrix(mapper, hidden_size), True)
         self.gru = nn.GRU(hidden_size, hidden_size)
-        self.device = device
+        self.device = DEVICE
 
     def forward(self, input, hidden):
         embedded = self.embedding(input).view(1, 1, -1)
@@ -101,7 +93,7 @@ class EncoderRNN(nn.Module):
 
         self.embedding = nn.Embedding(input_size, hidden_size)
         self.gru = nn.GRU(hidden_size, hidden_size)
-        self.device = device
+        self.device = DEVICE
 
     def forward(self, input, hidden):
         embedded = self.embedding(input).view(1, 1, -1)
@@ -164,7 +156,7 @@ class AttnDecoderRNN(nn.Module):
         return output, hidden, attn_weights
 
     def initHidden(self):
-        return torch.zeros(1, 1, self.hidden_size, device=device)
+        return torch.zeros(1, 1, self.hidden_size, device=DEVICE)
 
 
 def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, use_attention, max_length=MAX_LENGTH):
@@ -176,7 +168,7 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
     input_length = input_tensor.size(0)
     target_length = target_tensor.size(0)
 
-    encoder_outputs = torch.zeros(max_length, encoder.hidden_size, device=device)
+    encoder_outputs = torch.zeros(max_length, encoder.hidden_size, device=DEVICE)
 
     loss = 0
 
@@ -187,11 +179,11 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
         encoder_output, encoder_hidden = encoder(input_tensor[ei], encoder_hidden)
         encoder_outputs[ei] = encoder_output[0, 0]
 
-    decoder_input = torch.tensor([[SOS_TOKEN]], device=device)
+    decoder_input = torch.tensor([[SOS_TOKEN]], device=DEVICE)
 
     decoder_hidden = encoder_hidden
 
-    use_teacher_forcing = True if random.random() < teacher_forcing_ratio else False
+    use_teacher_forcing = True if random.random() < TFR else False
 
     if use_teacher_forcing:
         for di in range(target_length):
@@ -236,12 +228,12 @@ def trainIters(encoder, decoder, n_iters, indexer, use_attention, print_every=10
     start = time.time()
     plot_losses = []
     print_loss_total = 0
-    plot_loss_total = 0
+    plot_loss_total = 0    
 
     encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
 
-    training_pairs = [indexer.tensorsFromPair(random.choice(pairs)) for i in range(n_iters)]
+    training_pairs = [indexer.tensorsFromPair(random.choice(PAIRS)) for i in range(n_iters)]
     criterion = nn.NLLLoss()
 
     for iter in range(1, n_iters + 1):
@@ -270,7 +262,7 @@ def evaluate(encoder, decoder, paragraph, indexer, use_attention, max_length=MAX
         input_length = input_tensor.size()[0]
         encoder_hidden = encoder.initHidden()
 
-        encoder_outputs = torch.zeros(max_length, encoder.hidden_size, device=device)
+        encoder_outputs = torch.zeros(max_length, encoder.hidden_size, device=DEVICE)
 
         if input_length > max_length:
             input_length = max_length
@@ -278,7 +270,7 @@ def evaluate(encoder, decoder, paragraph, indexer, use_attention, max_length=MAX
         for ei in range(input_length):
             encoder_output, encoder_hidden = encoder(input_tensor[ei], encoder_hidden)
             encoder_outputs[ei] += encoder_output[0, 0]
-        decoder_input = torch.tensor([[SOS_TOKEN]], device=device)
+        decoder_input = torch.tensor([[SOS_TOKEN]], device=DEVICE)
 
         decoder_hidden = encoder_hidden
 
@@ -301,7 +293,7 @@ def evaluate(encoder, decoder, paragraph, indexer, use_attention, max_length=MAX
 
 def evaluateRandomly(encoder, decoder, mapper, use_attention, n=100):
     for i in range(n):
-        pair = random.choice(pairs)
+        pair = random.choice(PAIRS)
         print('T: ', pair[0])
         print('Q: ', pair[1])
 
@@ -315,16 +307,16 @@ def model_train_test(n_iters, print_every):
     mapper = WordIndexMapper("word_to_index.pkl", "index_to_word.pkl", "word_to_count.pkl")
     #encoder1 = EncoderRNN(mapper.n_words, hidden_size).to(device)
     #decoder1 = DecoderRNN(hidden_size, mapper.n_words).to(device)
-    encoder = GloveEncoderRNN(mapper, hidden_size).to(device)
+    encoder = GloveEncoderRNN(mapper, hidden_size).to(DEVICE)
     #attn_decoder1 = AttnDecoderRNN(hidden_size, mapper.n_words).to(device)
-    decoder = GloveAttnDecoderRNN(mapper, hidden_size).to(device)
+    decoder = GloveAttnDecoderRNN(mapper, hidden_size).to(DEVICE)
     trainIters(encoder, decoder, n_iters, mapper, True, print_every, plot_every=1000)
     evaluateRandomly(encoder, decoder, mapper, True)
 
 def load_models(PATH):
     hidden_size = 256
     mapper = WordIndexMapper("word_to_index.pkl", "index_to_word.pkl", "word_to_count.pkl")
-    encoder = EncoderRNN(mapper.n_words, hidden_size).to(device)
+    encoder = EncoderRNN(mapper.n_words, hidden_size).to(DEVICE)
     attn_decoder = AttnDecoderRNN(hidden_size, mapper.n_words).to(device)
     encoder.load_state_dict(torch.load(PATH + "50k_encoder"))
     attn_decoder.load_state_dict(torch.load(PATH + "50k_decoder"))
