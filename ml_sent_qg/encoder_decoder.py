@@ -15,7 +15,7 @@ from txt_token import SOS_TOKEN, EOS_TOKEN
 from glove_loader import create_glove_vect_dict, create_emb_layer
 
 class GloveEncoderRNN(nn.Module):
-    def __init__(self, mapper, hidden_size):
+    def __init__(self, hidden_size):
         super(GloveEncoderRNN, self).__init__()
         self.hidden_size = hidden_size
         self.embedding = create_emb_layer(hidden_size, True)
@@ -32,10 +32,10 @@ class GloveEncoderRNN(nn.Module):
         return torch.zeros(1, 1, self.hidden_size, device=self.device)
         
 class GloveAttnDecoderRNN(nn.Module):
-    def __init__(self, mapper, hidden_size, dropout_p=0.1, max_length=MAX_LENGTH):
+    def __init__(self, hidden_size, dropout_p=0.1, max_length=MAX_LENGTH):
         super(GloveAttnDecoderRNN, self).__init__()
         self.hidden_size = hidden_size
-        self.output_size = mapper.n_words
+        self.output_size = MAPPER.n_words
         self.dropout_p = dropout_p
         self.max_length = max_length
 
@@ -204,7 +204,7 @@ def timeSince(since, percent):
     rs = es - s
     return '%s (- %s)' % (asMinutes(s), asMinutes(rs))
 
-def trainIters(encoder, decoder, n_iters, indexer, use_attention, print_every=1000, plot_every=100, learning_rate=0.01):
+def trainIters(encoder, decoder, n_iters, use_attention, print_every=1000, plot_every=100, learning_rate=0.01):
     start = time.time()
     plot_losses = []
     print_loss_total = 0
@@ -213,7 +213,7 @@ def trainIters(encoder, decoder, n_iters, indexer, use_attention, print_every=10
     encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
 
-    training_pairs = [indexer.tensorsFromPair(random.choice(PAIRS)) for i in range(n_iters)]
+    training_pairs = [MAPPER.tensorsFromPair(random.choice(PAIRS)) for i in range(n_iters)]
     criterion = nn.NLLLoss()
 
     for iter in range(1, n_iters + 1):
@@ -236,9 +236,9 @@ def trainIters(encoder, decoder, n_iters, indexer, use_attention, print_every=10
                 plot_losses.append(plot_loss_avg)
                 plot_loss_total = 0
 
-def evaluate(encoder, decoder, paragraph, indexer, use_attention, max_length=MAX_LENGTH):
+def evaluate(encoder, decoder, paragraph, use_attention, max_length=MAX_LENGTH):
     with torch.no_grad():
-        input_tensor = indexer.tensorFromParagraph(paragraph)
+        input_tensor = MAPPER.tensorFromParagraph(paragraph)
         input_length = input_tensor.size()[0]
         encoder_hidden = encoder.initHidden()
 
@@ -266,18 +266,18 @@ def evaluate(encoder, decoder, paragraph, indexer, use_attention, max_length=MAX
             if topi.item() == EOS_TOKEN:
                 break
             else:
-                decoded_words.append(indexer.index2word[topi.item()])
+                decoded_words.append(MAPPER.index2word[topi.item()])
 
             decoder_input = topi.squeeze().detach()
         return decoded_words, decoder_attentions[:di + 1]
 
-def evaluateRandomly(encoder, decoder, mapper, use_attention, n=100):
+def evaluateRandomly(encoder, decoder, use_attention, n=100):
     for i in range(n):
         pair = random.choice(PAIRS)
         print('T: ', pair[0])
         print('Q: ', pair[1])
 
-        output_words, attentions = evaluate(encoder, decoder, pair[0], mapper, use_attention)
+        output_words, attentions = evaluate(encoder, decoder, pair[0], use_attention)
         output_question = ' '.join(output_words)
         print('Q? ', output_question)
         print(' ')
@@ -287,11 +287,11 @@ def model_train_test(n_iters, print_every):
     mapper = WordIndexMapper("word_to_index.pkl", "index_to_word.pkl", "word_to_count.pkl")
     #encoder1 = EncoderRNN(mapper.n_words, hidden_size).to(device)
     #decoder1 = DecoderRNN(hidden_size, mapper.n_words).to(device)
-    encoder = GloveEncoderRNN(mapper, hidden_size).to(DEVICE)
+    encoder = GloveEncoderRNN(hidden_size).to(DEVICE)
     #attn_decoder1 = AttnDecoderRNN(hidden_size, mapper.n_words).to(device)
-    decoder = GloveAttnDecoderRNN(mapper, hidden_size).to(DEVICE)
-    trainIters(encoder, decoder, n_iters, mapper, True, print_every, plot_every=1000)
-    evaluateRandomly(encoder, decoder, mapper, True)
+    decoder = GloveAttnDecoderRNN(hidden_size).to(DEVICE)
+    trainIters(encoder, decoder, n_iters, True, print_every, plot_every=1000)
+    evaluateRandomly(encoder, decoder, True)
 
 def load_models(PATH):
     hidden_size = 256
