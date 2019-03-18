@@ -47,8 +47,10 @@ def make_weights_matrix(emb_dim):
     weights_matrix = np.zeros(shape=(matrix_len, emb_dim))
     words_found = 0
     glove = create_glove_vect_dict()
-    for i, word in enumerate(MAPPER.word2index):
+    index2word = MAPPER.index2word
+    for i in range(matrix_len):
         try:
+            word = index2word[i]
             weights_matrix[i] = glove[word]
             words_found += 1
         except KeyError:

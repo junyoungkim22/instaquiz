@@ -23,7 +23,10 @@ class GloveEncoderRNN(nn.Module):
         self.device = DEVICE
 
     def forward(self, input, hidden):
+        print 'here we go'
+        print input
         embedded = self.embedding(input).view(1, 1, -1)
+        print embedded
         output = embedded
         output, hidden = self.gru(output, hidden)
         return output, hidden
@@ -189,7 +192,7 @@ def evaluate(encoder, decoder, paragraph, max_length=MAX_LENGTH):
             decoder_input = topi.squeeze().detach()
         return decoded_words, decoder_attentions[:di + 1]
 
-def evaluateRandomly(encoder, decoder, n=100):
+def evaluateRandomly(encoder, decoder, n=1):
     for i in range(n):
         pair = random.choice(PAIRS)
         print('T: ', pair[0])
