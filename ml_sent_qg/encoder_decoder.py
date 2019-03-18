@@ -23,10 +23,7 @@ class GloveEncoderRNN(nn.Module):
         self.device = DEVICE
 
     def forward(self, input, hidden):
-        print 'here we go'
-        print input
         embedded = self.embedding(input).view(1, 1, -1)
-        print embedded
         output = embedded
         output, hidden = self.gru(output, hidden)
         return output, hidden
