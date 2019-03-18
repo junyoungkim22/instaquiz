@@ -14,22 +14,27 @@ from  global_var import PAIRS, DEVICE, MAPPER, TFR, MAX_LENGTH
 from txt_token import SOS_TOKEN, EOS_TOKEN
 from glove_loader import create_glove_vect_dict, create_emb_layer
 
+LAYER_NUM = 2
+BIDIR = True
+
 class GloveEncoderRNN(nn.Module):
     def __init__(self, hidden_size):
         super(GloveEncoderRNN, self).__init__()
         self.hidden_size = hidden_size
         self.embedding = create_emb_layer(hidden_size, True)
-        self.gru = nn.GRU(hidden_size, hidden_size)
+        self.lstm = nn.LSTM(hidden_size, hidden_size, num_layers=LAYER_NUM, bidirectional=BIDIR)
         self.device = DEVICE
 
     def forward(self, input, hidden):
         embedded = self.embedding(input).view(1, 1, -1)
         output = embedded
-        output, hidden = self.gru(output, hidden)
+        output, hidden = self.lstm(output, hidden)
         return output, hidden
 
     def initHidden(self):
-        return torch.zeros(1, 1, self.hidden_size, device=self.device)
+        one_torch = torch.zeros(LAYER_NUM * 2, 1, self.hidden_size, device=self.device)
+        return (one_torch, one_torch)
+        #return (torch.zeros(1, 1, self.hidden_size).to(self.device), torch.zeros(1, 1, self.hidden_size).to(self.device))
         
 class GloveAttnDecoderRNN(nn.Module):
     def __init__(self, hidden_size, dropout_p=0.1, max_length=MAX_LENGTH):
@@ -43,27 +48,30 @@ class GloveAttnDecoderRNN(nn.Module):
         self.attn = nn.Linear(self.hidden_size * 2, self.max_length)
         self.attn_combine = nn.Linear(self.hidden_size * 2, self.hidden_size)
         self.dropout = nn.Dropout(self.dropout_p)
-        self.gru = nn.GRU(self.hidden_size, self.hidden_size)
-        self.out = nn.Linear(self.hidden_size, self.output_size)
+        self.lstm = nn.LSTM(self.hidden_size, self.hidden_size, num_layers=LAYER_NUM, bidirectional=BIDIR)
+        self.out = nn.Linear(self.hidden_size * 2, self.output_size)
 
     def forward(self, input, hidden, encoder_outputs):
         embedded = self.embedding(input).view(1, 1, -1)
-        embedded = self.dropout(embedded)
+        #embedded = self.dropout(embedded)
 
-        attn_weights = F.softmax(self.attn(torch.cat((embedded[0], hidden[0]), 1)), dim=1)
-        attn_applied = torch.bmm(attn_weights.unsqueeze(0), encoder_outputs.unsqueeze(0))
+        #attn_weights = F.softmax(self.attn(torch.cat((embedded[0], hidden[0]), 1)), dim=1)
+        #attn_applied = torch.bmm(attn_weights.unsqueeze(0), encoder_outputs.unsqueeze(0))
 
-        output = torch.cat((embedded[0], hidden[0]), 1)
-        output = self.attn_combine(output).unsqueeze(0)
+        #output = torch.cat((embedded[0], hidden[0]), 1)
+        #output = self.attn_combine(output).unsqueeze(0)
 
-        output = F.relu(output)
-        output, hidden = self.gru(output, hidden)
+        #output = F.relu(output)
+        output = embedded
+        output, hidden = self.lstm(output, hidden)
 
         output = F.log_softmax(self.out(output[0]), dim=1)
-        return output, hidden, attn_weights
+        return output, hidden
 
     def initHidden(self):
-        return torch.zeros(1, 1, self.hidden_size, device=device)
+        one_torch = torch.zeros(LAYER_NUM * 2, 1, self.hidden_size, device=self.device)
+        return (one_torch, one_torch)
+        #return (torch.zeros(1, 1, self.hidden_size, device=self.device), torch.zeros(1, 1, self.hidden_size, device=self.device))
 
 
 def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length=MAX_LENGTH):
@@ -75,7 +83,7 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
     input_length = input_tensor.size(0)
     target_length = target_tensor.size(0)
 
-    encoder_outputs = torch.zeros(max_length, encoder.hidden_size, device=DEVICE)
+    encoder_outputs = torch.zeros(max_length, encoder.hidden_size * 2, device=DEVICE)
 
     loss = 0
 
@@ -94,12 +102,12 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
 
     if use_teacher_forcing:
         for di in range(target_length):
-            decoder_output, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_hidden, encoder_outputs)
+            decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden, encoder_outputs)
             loss += criterion(decoder_output, target_tensor[di])
             decoder_input = target_tensor[di]
     else:
         for di in range(target_length):
-            decoder_output, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_hidden, encoder_outputs)
+            decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden, encoder_outputs)
             topv, topi = decoder_output.topk(1)
             decoder_input = topi.squeeze().detach()
 
@@ -163,7 +171,7 @@ def evaluate(encoder, decoder, paragraph, max_length=MAX_LENGTH):
         input_length = input_tensor.size()[0]
         encoder_hidden = encoder.initHidden()
 
-        encoder_outputs = torch.zeros(max_length, encoder.hidden_size, device=DEVICE)
+        encoder_outputs = torch.zeros(max_length, encoder.hidden_size * 2, device=DEVICE)
 
         if input_length > max_length:
             input_length = max_length
@@ -176,10 +184,10 @@ def evaluate(encoder, decoder, paragraph, max_length=MAX_LENGTH):
         decoder_hidden = encoder_hidden
 
         decoded_words = []
-        decoder_attentions = torch.zeros(max_length, max_length)
+        #decoder_attentions = torch.zeros(max_length, max_length)
         
         for di in range(max_length):
-            decoder_output, decoder_hidden, decoder_attention = decoder(decoder_input, decoder_hidden, encoder_outputs)
+            decoder_output, decoder_hidden = decoder(decoder_input, decoder_hidden, encoder_outputs)
             topv, topi = decoder_output.data.topk(1)
             if topi.item() == EOS_TOKEN:
                 break
@@ -187,15 +195,15 @@ def evaluate(encoder, decoder, paragraph, max_length=MAX_LENGTH):
                 decoded_words.append(MAPPER.index2word[topi.item()])
 
             decoder_input = topi.squeeze().detach()
-        return decoded_words, decoder_attentions[:di + 1]
+        return decoded_words
 
-def evaluateRandomly(encoder, decoder, n=1):
+def evaluateRandomly(encoder, decoder, n=100):
     for i in range(n):
         pair = random.choice(PAIRS)
         print('T: ', pair[0])
         print('Q: ', pair[1])
 
-        output_words, attentions = evaluate(encoder, decoder, pair[0])
+        output_words = evaluate(encoder, decoder, pair[0])
         output_question = ' '.join(output_words)
         print('Q? ', output_question)
         print(' ')
