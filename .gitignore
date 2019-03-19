@@ -1,4 +1,5 @@
 *.pyc
 ml_sent_qg/glove/*.pkl
 ml_sent_qg/glove/*.txt
+ml_sent_qg/glove/*.dat
 
