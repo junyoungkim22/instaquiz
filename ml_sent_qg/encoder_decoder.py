@@ -21,23 +21,19 @@ class GloveEncoderRNN(nn.Module):
         self.hidden_size = 600
         self.embedding = create_emb_layer(emb_dim, True)
         self.gru = nn.GRU(emb_dim, self.hidden_size, num_layers=1, bidirectional=False)
-        self.lstm = nn.LSTM(emb_dim, self.hidden_size // 2, num_layers=1, bidirectional=True)
+        #self.lstm = nn.LSTM(emb_dim, self.hidden_size // 2, num_layers=1, bidirectional=True)
         self.device = DEVICE
 
     def forward(self, input, hidden):
-        embedded = self.embedding(input).view(len(input), 1, -1)
+        embedded = self.embedding(input).view(1, 1, -1)
         output = embedded
-        output, hidden = self.lstm(output, hidden)
+        #output, hidden = self.lstm(output, hidden)
         output, hidden = self.gru(output, hidden)
-        print ('Hidden')
-        h1, h2 = hidden
-        print (h1.size())
-        print (h2.size())
         return output, hidden
 
     def initHidden(self):
-        return (torch.randn(2, 1, self.hidden_size // 2), torch.randn(2, 1, self.hidden_size // 2))
-        #return torch.zeros(1, 1, self.hidden_size, device=self.device)
+        #return (torch.randn(2, 1, self.hidden_size // 2), torch.randn(2, 1, self.hidden_size // 2))
+        return torch.zeros(1, 1, self.hidden_size, device=self.device)
         #return torch.zeros(4, 1, self.hidden_size // 4)
         
 class GloveAttnDecoderRNN(nn.Module):
@@ -50,11 +46,11 @@ class GloveAttnDecoderRNN(nn.Module):
         self.max_length = max_length
 
         self.embedding = create_emb_layer(emb_dim, True)
-        self.attn = nn.Linear(self.hidden_size * 2, self.max_length)
-        self.attn_combine = nn.Linear(self.hidden_size * 2, self.hidden_size)
+        self.attn = nn.Linear(self.hidden_size + self.embedding_dim, self.max_length)
+        self.attn_combine = nn.Linear(self.hidden_size + self.embedding_dim, self.hidden_size)
         self.dropout = nn.Dropout(self.dropout_p)
-        #self.gru = nn.GRU(self.hidden_size, self.hidden_size)
-        self.lstm = nn.LSTM(self.embedding_dim, self.hidden_size, num_layers=2, bidirectional=True)
+        self.gru = nn.GRU(self.hidden_size, self.hidden_size)
+        #self.lstm = nn.LSTM(self.embedding_dim, self.hidden_size, num_layers=2, bidirectional=True)
         
         self.out = nn.Linear(self.hidden_size, self.output_size)
 
@@ -69,8 +65,8 @@ class GloveAttnDecoderRNN(nn.Module):
         output = self.attn_combine(output).unsqueeze(0)
 
         output = F.relu(output)
-        #output, hidden = self.gru(output, hidden)
-        output, hidden = self.lstm(output, hidden)
+        output, hidden = self.gru(output, hidden)
+        #output, hidden = self.lstm(output, hidden)
 
         output = F.log_softmax(self.out(output[0]), dim=1)
         return output, hidden, attn_weights
@@ -147,7 +143,10 @@ def trainIters(encoder, decoder, n_iters, print_every=1000, plot_every=100, lear
     encoder_optimizer = optim.SGD(encoder.parameters(), lr=learning_rate)
     decoder_optimizer = optim.SGD(decoder.parameters(), lr=learning_rate)
 
-    training_pairs = [MAPPER.tensorsFromPair(random.choice(PAIRS)) for i in range(n_iters)]
+    training_pairs = []
+    for i in range(n_iters):
+        training_pairs.append(MAPPER.tensorsFromPair(PAIRS[i]))
+    #training_pairs = [MAPPER.tensorsFromPair(random.choice(PAIRS)) for i in range(n_iters)]
     criterion = nn.NLLLoss()
 
     for iter in range(1, n_iters + 1):
@@ -202,16 +201,16 @@ def evaluate(encoder, decoder, paragraph, max_length=MAX_LENGTH):
             decoder_input = topi.squeeze().detach()
         return decoded_words, decoder_attentions[:di + 1]
 
-def evaluateRandomly(encoder, decoder, n=100):
+def evaluatePairs(encoder, decoder, n=100):
     for i in range(n):
-        pair = random.choice(PAIRS)
+        pair = PAIRS[60000 + i]
         print('T: ', pair[0])
         print('Q: ', pair[1])
 
         output_words, attentions = evaluate(encoder, decoder, pair[0])
         output_question = ' '.join(output_words)
         print('Q? ', output_question)
-        print(attentions)
+        #print(attentions)
         print(' ')
 
 def model_train_test(n_iters, print_every):
@@ -223,7 +222,7 @@ def model_train_test(n_iters, print_every):
     #attn_decoder1 = AttnDecoderRNN(hidden_size, mapper.n_words).to(device)
     decoder = GloveAttnDecoderRNN(emb_dim).to(DEVICE)
     trainIters(encoder, decoder, n_iters, print_every, plot_every=1000)
-    evaluateRandomly(encoder, decoder)
+    evaluatePairs(encoder, decoder)
 
 def load_models(PATH):
     hidden_size = 256

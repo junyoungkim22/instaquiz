@@ -3,7 +3,7 @@ import torch
 import random
 from word_index_mapper import WordIndexMapper, make_dictionary
 
-MAX_LENGTH = 100
+MAX_LENGTH = 30
 
 data = squad_loader.process_file("train-v2.0.json")
 PAIRS = squad_loader.prepare_ans_sent_pairs(data)
