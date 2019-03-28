@@ -74,6 +74,42 @@ class GloveAttnDecoderRNN(nn.Module):
     def initHidden(self):
         return torch.zeros(1, 1, self.hidden_size, device=device)
 
+class Attn(torch.nn.Module):
+    def __init__(self, method, hidden_size):
+        super(Attn, self).__init__()
+        self.method = method
+        if self.method not in ['dot', 'general', 'concat']:
+            raise ValueError(self.method, "is not an appropriate attention method.")
+        self.hidden_size = hidden_size
+        if self.method == 'general':
+            self.attn = torch.nn.Linear(self.hidden_size, hidden_size)
+        elif self.method == 'concat':
+            self.attn = torch.nn.Linear(self.hidden_size * 2, hidden_size)
+            self.v = torch.nn.Parameter(torch.FloatTensor(hidden_size))
+
+    def dot_score(self, hidden, encoder_output):
+        return torch.sum(hidden * encoder_output, dim=2)
+
+    def general_score(self, hidden, encoder_output):
+        energy = self.attn(encoder_output)
+        return torch.sum(hidden * energy, dim=2)
+
+    def concat_score(self, hidden, encoder_output):
+        energy = self.attn(torch.cat((hidden.expand(encoder_output.size(0), -1, -1), encoder_output), 2)).tanh()
+        return torch.sum(self.v * energy, dim=2)
+
+    def forward(self, hidden, encoder_outputs):
+        if self.method == 'general'
+            attn_energies = self.general_score(hidden, encoder_outputs)
+        elif self.method == 'concat':
+            attn_energies = self.concat_score(hidden, encoder_outputs)
+        elif self.method == 'dot':
+            attn_energies = self.dot_score(hidden, encoder_outputs)
+
+        attn_energies = attn_energies.t()
+
+        return F.softmax(attn_energies, dim=1).unsqueeze(1)
+
 
 def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length=MAX_LENGTH):
     encoder_hidden = encoder.initHidden()
@@ -134,7 +170,7 @@ def timeSince(since, percent):
     rs = es - s
     return '%s (- %s)' % (asMinutes(s), asMinutes(rs))
 
-def trainIters(encoder, decoder, n_iters, print_every=1000, plot_every=100, learning_rate=0.01):
+def trainIters(encoder, decoder, n_iters, start_index, print_every=1000, plot_every=100, learning_rate=0.01):
     start = time.time()
     plot_losses = []
     print_loss_total = 0
@@ -145,7 +181,7 @@ def trainIters(encoder, decoder, n_iters, print_every=1000, plot_every=100, lear
 
     training_pairs = []
     for i in range(n_iters):
-        training_pairs.append(MAPPER.tensorsFromPair(PAIRS[i]))
+        training_pairs.append(MAPPER.tensorsFromPair(PAIRS[i + start_index]))
     #training_pairs = [MAPPER.tensorsFromPair(random.choice(PAIRS)) for i in range(n_iters)]
     criterion = nn.NLLLoss()
 
@@ -201,9 +237,9 @@ def evaluate(encoder, decoder, paragraph, max_length=MAX_LENGTH):
             decoder_input = topi.squeeze().detach()
         return decoded_words, decoder_attentions[:di + 1]
 
-def evaluatePairs(encoder, decoder, n=100):
+def evaluatePairs(encoder, decoder, start, n=100):
     for i in range(n):
-        pair = PAIRS[60000 + i]
+        pair = PAIRS[60000 + i + start]
         print('T: ', pair[0])
         print('Q: ', pair[1])
 
@@ -213,7 +249,7 @@ def evaluatePairs(encoder, decoder, n=100):
         #print(attentions)
         print(' ')
 
-def model_train_test(n_iters, print_every):
+def model_train_test(n_iters, start_index, print_every):
     emb_dim = 200
     mapper = WordIndexMapper("word_to_index.pkl", "index_to_word.pkl", "word_to_count.pkl")
     #encoder1 = EncoderRNN(mapper.n_words, hidden_size).to(device)
@@ -221,8 +257,8 @@ def model_train_test(n_iters, print_every):
     encoder = GloveEncoderRNN(emb_dim).to(DEVICE)
     #attn_decoder1 = AttnDecoderRNN(hidden_size, mapper.n_words).to(device)
     decoder = GloveAttnDecoderRNN(emb_dim).to(DEVICE)
-    trainIters(encoder, decoder, n_iters, print_every, plot_every=1000)
-    evaluatePairs(encoder, decoder)
+    trainIters(encoder, decoder, n_iters, start_index, print_every, plot_every=1000)
+    evaluatePairs(encoder, decoder, start_index)
 
 def load_models(PATH):
     hidden_size = 256

@@ -49,6 +49,21 @@ class WordIndexMapper:
         else:
             self.word2count[word] += 1
 
+    def trim(self, min_count):
+        keep_words = []
+
+        for k, v in self.word2count.item():
+            if v >= min_count:
+                keep_words.append(k)
+        
+        self.word2index = {"<sos>": 0, "<eos>": 1, "<anss>": 2, "<anse>": 3, "<unk>": 4}
+        self.word2count = {}
+        self.index2word = {0: "<sos>", 1: "<eos>", 2: "<anss>", 3: "<anse>", 4: "<unk>"}
+
+        for word in keep_words:
+            self.addWord(word)
+
+
     def save(self):
         output = open(self.w2i_filename, 'wb')
         pickle.dump(self.word2index, output)
