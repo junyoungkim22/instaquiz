@@ -7,6 +7,7 @@ import time
 import math
 import random
 import numpy as np
+from nltk.translate.bleu_score import sentence_bleu
 
 import squad_loader
 from word_index_mapper import WordIndexMapper
@@ -74,6 +75,7 @@ class GloveAttnDecoderRNN(nn.Module):
     def initHidden(self):
         return torch.zeros(1, 1, self.hidden_size, device=device)
 
+'''
 class Attn(torch.nn.Module):
     def __init__(self, method, hidden_size):
         super(Attn, self).__init__()
@@ -109,6 +111,7 @@ class Attn(torch.nn.Module):
         attn_energies = attn_energies.t()
 
         return F.softmax(attn_energies, dim=1).unsqueeze(1)
+'''
 
 
 def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length=MAX_LENGTH):
@@ -238,6 +241,7 @@ def evaluate(encoder, decoder, paragraph, max_length=MAX_LENGTH):
         return decoded_words, decoder_attentions[:di + 1]
 
 def evaluatePairs(encoder, decoder, start, n=100):
+    bleu_scores = []
     for i in range(n):
         pair = PAIRS[60000 + i + start]
         print('T: ', pair[0])
@@ -247,7 +251,12 @@ def evaluatePairs(encoder, decoder, start, n=100):
         output_question = ' '.join(output_words)
         print('Q? ', output_question)
         #print(attentions)
+        bleu_score = sentence_bleu([MAPPER.normalizeString(pair[1])], output_question)
+        print("BLEU score: ", bleu_score)
+        bleu_scores.append(bleu_score)
         print(' ')
+
+    print("BLEU score average: ", sum(bleu_scores) / float(len(bleu_scores)))
 
 def model_train_test(n_iters, start_index, print_every):
     emb_dim = 200
