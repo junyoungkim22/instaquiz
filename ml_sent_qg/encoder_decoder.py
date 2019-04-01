@@ -83,7 +83,7 @@ class GloveAttnDecoderRNN(nn.Module):
         concat_output = torch.tanh(self.concat(concat_input))
 
         output = self.out(concat_output)
-        output = F.softmax(output, dim=1)
+        output = F.log_softmax(output, dim=1)
 	
         '''
         attn_weights = F.softmax(self.attn(torch.cat((embedded[0], hidden[0]), 1)), dim=1)
@@ -200,8 +200,6 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
             decoder_input = topi.squeeze().detach()
             
             loss += criterion(decoder_output, target_tensor[di])
-            print decoder_output
-            print target_tensor[di]
             if decoder_input.item() == EOS_TOKEN:
                 break
     loss.backward()
@@ -287,19 +285,19 @@ def evaluatePairs(encoder, decoder, start, n=100):
     bleu_scores = []
     for i in range(n):
         pair = PAIRS[60000 + i + start]
-        print('T: ', pair[0])
-        print('Q: ', pair[1])
+        print('T: ' + pair[0])
+        print('Q: ' + pair[1])
 
         output_words = evaluate(encoder, decoder, pair[0])
         output_question = ' '.join(output_words)
-        print('Q? ', output_question)
+        print('Q? ' + output_question)
         #print(attentions)
         bleu_score = sentence_bleu([MAPPER.normalizeString(pair[1])], output_question)
-        print("BLEU score: ", bleu_score)
+        print("BLEU score: %f" % bleu_score)
         bleu_scores.append(bleu_score)
         print(' ')
 
-    print("BLEU score average: ", sum(bleu_scores) / float(len(bleu_scores)))
+    print("BLEU score average: %f" % (sum(bleu_scores) / float(len(bleu_scores))))
 
 def model_train_test(n_iters, start_index, print_every):
     emb_dim = 200
