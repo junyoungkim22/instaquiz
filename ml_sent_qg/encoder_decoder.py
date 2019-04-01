@@ -19,7 +19,7 @@ class GloveEncoderRNN(nn.Module):
     def __init__(self, emb_dim):
         super(GloveEncoderRNN, self).__init__()
         self.embedding_dim = emb_dim
-        self.hidden_size = 600
+        self.hidden_size = 300
         self.embedding = create_emb_layer(emb_dim, True)
         self.gru = nn.GRU(emb_dim, self.hidden_size, num_layers=1, bidirectional=False)
         self.lstm = nn.LSTM(emb_dim, self.hidden_size, num_layers=2, dropout=1, bidirectional=True)
@@ -42,7 +42,7 @@ class GloveAttnDecoderRNN(nn.Module):
     def __init__(self, emb_dim, dropout_p=0.1, max_length=MAX_LENGTH):
         super(GloveAttnDecoderRNN, self).__init__()
         self.embedding_dim = emb_dim
-        self.hidden_size = 600
+        self.hidden_size = 300
         self.output_size = MAPPER.n_words
         self.dropout_p = dropout_p
         self.max_length = max_length
@@ -67,6 +67,13 @@ class GloveAttnDecoderRNN(nn.Module):
         # ->((4, 1, 600), (4, 1, 600))
         #rnn_output dim : (seq_len=1, batch, num_directions*hidden_size)
         #encoder_outputs : (seq_len, batch, hidden_size)
+
+        '''
+        output = self.linearTest(rnn_output)
+        output = self.out(output)
+        return output, hidden, None
+        '''
+
         attn_weights = self.attn(rnn_output, encoder_outputs)
 
         context = attn_weights.bmm(encoder_outputs.transpose(0, 1))
@@ -118,7 +125,15 @@ class Attn(torch.nn.Module):
 
     def concat_score(self, hidden, encoder_output):
         energy = self.attn(torch.cat((hidden.expand(encoder_output.size(0), -1, -1), encoder_output), 2)).tanh()
-        return torch.sum(self.v * energy, dim=2)
+        '''
+        print "energy!!"
+        print energy
+        print energy.size()
+        print torch.sum(self.v * energy, dim = 2).size()
+        print encoder_output.size()
+        '''
+        return torch.sum(energy, dim=2)
+        #return torch.sum(self.v * energy, dim=2)
 
     def forward(self, hidden, encoder_outputs):
         if self.method == 'general':
@@ -127,8 +142,16 @@ class Attn(torch.nn.Module):
             attn_energies = self.concat_score(hidden, encoder_outputs)
         elif self.method == 'dot':
             attn_energies = self.dot_score(hidden, encoder_outputs)
-
+            
         attn_energies = attn_energies.t()
+        
+        '''
+        print "attention start!"
+        print attn_energies
+
+        print F.softmax(attn_energies, dim=1)
+        print F.softmax(attn_energies, dim=1).size()
+        '''
 
         return F.softmax(attn_energies, dim=1).unsqueeze(1)
 
@@ -162,6 +185,9 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
 
     use_teacher_forcing = True if random.random() < TFR else False
 
+    if(target_length > MAX_LENGTH):
+        target_length = MAX_LENGTH
+
     if use_teacher_forcing:
         for di in range(target_length):
             decoder_output, (decoder_hidden, decoder_cell_state), decoder_attention = decoder(decoder_input, (decoder_hidden, decoder_cell_state), encoder_outputs)
@@ -172,8 +198,10 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
             decoder_output, (decoder_hidden, decoder_cell_state), decoder_attention = decoder(decoder_input, (decoder_hidden, decoder_cell_state), encoder_outputs)
             topv, topi = decoder_output.topk(1)
             decoder_input = topi.squeeze().detach()
-
+            
             loss += criterion(decoder_output, target_tensor[di])
+            print decoder_output
+            print target_tensor[di]
             if decoder_input.item() == EOS_TOKEN:
                 break
     loss.backward()
