@@ -30,6 +30,7 @@ class WordIndexMapper:
         w2c_pkl_file.close()
         self.n_words = len(self.word2index)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+        self.trim(2)
 
     def addParagraph(self, para):
         paragraph = self.normalizeString(para)
@@ -50,11 +51,18 @@ class WordIndexMapper:
             self.word2count[word] += 1
 
     def trim(self, min_count):
+        print "Trimming words with less than " + str(min_count) + " occurrences"
+        before = self.n_words;
         keep_words = []
 
-        for k, v in self.word2count.item():
-            if v >= min_count:
-                keep_words.append(k)
+        for i in range(self.n_words):
+            try:
+                if self.word2count[self.index2word[i]] >= min_count:
+                    keep_words.append(self.index2word[i])
+                else:
+                    print self.index2word[i]
+            except KeyError:
+                print self.index2word[i] + " not included!"
         
         self.word2index = {"<sos>": 0, "<eos>": 1, "<anss>": 2, "<anse>": 3, "<unk>": 4}
         self.word2count = {}
@@ -62,6 +70,10 @@ class WordIndexMapper:
 
         for word in keep_words:
             self.addWord(word)
+
+        self.n_words = len(self.word2index)
+        print "Before trim n_words: " + str(before)
+        print "After trim n_words: " + str(self.n_words)
 
 
     def save(self):
