@@ -2,4 +2,5 @@
 ml_sent_qg/glove/*.pkl
 ml_sent_qg/glove/*.txt
 ml_sent_qg/.ipynb*
-
+ml_sent_qg/*.ipynb
+ml_sent_qg/dictionary/

@@ -3,6 +3,7 @@ import torch
 import pickle
 import re
 import unicodedata
+import random
 from txt_token import SOS_TOKEN, EOS_TOKEN
 
 dict_directory = "dictionary/"
@@ -30,7 +31,6 @@ class WordIndexMapper:
         w2c_pkl_file.close()
         self.n_words = len(self.word2index)
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-        self.trim(2)
 
     def addParagraph(self, para):
         paragraph = self.normalizeString(para)
@@ -53,6 +53,7 @@ class WordIndexMapper:
     def trim(self, min_count):
         print "Trimming words with less than " + str(min_count) + " occurrences"
         before = self.n_words;
+        print before
         keep_words = []
 
         for i in range(self.n_words):
@@ -60,7 +61,8 @@ class WordIndexMapper:
                 if self.word2count[self.index2word[i]] >= min_count:
                     keep_words.append(self.index2word[i])
                 else:
-                    print self.index2word[i]
+                    #print self.index2word[i]
+                    pass
             except KeyError:
                 print self.index2word[i] + " not included!"
         
@@ -68,10 +70,11 @@ class WordIndexMapper:
         self.word2count = {}
         self.index2word = {0: "<sos>", 1: "<eos>", 2: "<anss>", 3: "<anse>", 4: "<unk>"}
 
+        self.n_words = len(self.word2index);
+
         for word in keep_words:
             self.addWord(word)
 
-        self.n_words = len(self.word2index)
         print "Before trim n_words: " + str(before)
         print "After trim n_words: " + str(self.n_words)
 
@@ -97,6 +100,10 @@ class WordIndexMapper:
         output = open(self.w2c_filename, 'wb')
         pickle.dump({}, output)
         output.close()
+        self.word2index = {"<sos>": 0, "<eos>": 1, "<anss>": 2, "<anse>": 3, "<unk>": 4}
+        self.word2count = {}
+        self.index2word = {0: "<sos>", 1: "<eos>", 2: "<anss>", 3: "<anse>", 4: "<unk>"}
+        self.n_words = len(self.word2index);
         
     def unicodeToAscii(self, s):
         return ''.join(
@@ -164,19 +171,24 @@ class WordIndexMapper:
                 hit_count += 1 
             return (hit_count, word_count) 
                                 
-def make_dictionary():
+def make_dictionary(limit, trim_num):
     data = squad_loader.process_file("train-v2.0.json") 
+    #print "shuffling"
+    random.shuffle(data)
     i = 0 
-    limit = 13500
     maker = WordIndexMapper("word_to_index.pkl", "index_to_word.pkl", "word_to_count.pkl") 
-    for context, context_qas in data: 
+    maker.reset()
+    #for context, context_qas in data: 
+    for i in range(limit):
+        context, context_qas = data[i]
         if i < limit:
             maker.addParagraph(context) 
             i += 1 
         else:
-            maker.paragraph_test(context)
+            #maker.paragraph_test(context)
             i += 1
             if i == limit + 300:
                 break
-    print(len(maker.word2index))
+    #print(len(maker.word2index))
+    maker.trim(trim_num)
     maker.save()

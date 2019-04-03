@@ -19,10 +19,10 @@ class GloveEncoderRNN(nn.Module):
     def __init__(self, emb_dim):
         super(GloveEncoderRNN, self).__init__()
         self.embedding_dim = emb_dim
-        self.hidden_size = 300
-        self.embedding = create_emb_layer(emb_dim, True)
+        self.hidden_size = 600
+        self.embedding = create_emb_layer(emb_dim, False)
         self.gru = nn.GRU(emb_dim, self.hidden_size, num_layers=1, bidirectional=False)
-        self.lstm = nn.LSTM(emb_dim, self.hidden_size, num_layers=2, dropout=1, bidirectional=True)
+        self.lstm = nn.LSTM(emb_dim, self.hidden_size, num_layers=2, dropout=0.3, bidirectional=True)
         self.device = DEVICE
 
     def forward(self, input, hidden=None):
@@ -42,25 +42,25 @@ class GloveAttnDecoderRNN(nn.Module):
     def __init__(self, emb_dim, dropout_p=0.1, max_length=MAX_LENGTH):
         super(GloveAttnDecoderRNN, self).__init__()
         self.embedding_dim = emb_dim
-        self.hidden_size = 300
+        self.hidden_size = 600
         self.output_size = MAPPER.n_words
         self.dropout_p = dropout_p
         self.max_length = max_length
 
-        self.embedding = create_emb_layer(emb_dim, True)
+        self.embedding = create_emb_layer(emb_dim, False)
         #self.attn = nn.Linear(self.hidden_size + self.embedding_dim, self.max_length)
         #self.attn_combine = nn.Linear(self.hidden_size + self.embedding_dim, self.hidden_size)
         self.attn = Attn('concat', self.hidden_size)
         self.dropout = nn.Dropout(self.dropout_p)
         #self.gru = nn.GRU(self.hidden_size, self.hidden_size)
-        self.lstm = nn.LSTM(self.embedding_dim, self.hidden_size, num_layers=2, bidirectional=True)
+        self.lstm = nn.LSTM(self.embedding_dim, self.hidden_size, num_layers=2, dropout=0.3, bidirectional=True)
         self.concat = nn.Linear(self.hidden_size * 3, self.hidden_size)
         
         self.out = nn.Linear(self.hidden_size, self.output_size)
 
     def forward(self, input, last_hidden, encoder_outputs):
         embedded = self.embedding(input).view(1, 1, -1)
-        #embedded = self.dropout(embedded)
+        embedded = self.dropout(embedded)
 
         rnn_output, hidden = self.lstm(embedded, last_hidden)
         #last_hidden = tuple of (num_layers * num_directions, batch, hidden_size)
