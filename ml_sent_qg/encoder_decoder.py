@@ -29,14 +29,8 @@ class GloveEncoderRNN(nn.Module):
         embedded = self.embedding(input)
         output = embedded
         output, hidden = self.lstm(output, hidden)
-        #output, hidden = self.gru(output, hidden)
         output = output[:, :, :self.hidden_size] + output[:, :, self.hidden_size:]
         return output, hidden
-
-    #def initHidden(self):
-        #return (torch.randn(2, 1, self.hidden_size // 2), torch.randn(2, 1, self.hidden_size // 2))
-        #return torch.zeros(1, 1, self.hidden_size, device=self.device)
-        #return torch.zeros(4, 1, self.hidden_size // 4)
         
 class GloveAttnDecoderRNN(nn.Module):
     def __init__(self, emb_dim, dropout_p=0.1, max_length=MAX_LENGTH):
@@ -48,11 +42,8 @@ class GloveAttnDecoderRNN(nn.Module):
         self.max_length = max_length
 
         self.embedding = create_emb_layer(emb_dim, False)
-        #self.attn = nn.Linear(self.hidden_size + self.embedding_dim, self.max_length)
-        #self.attn_combine = nn.Linear(self.hidden_size + self.embedding_dim, self.hidden_size)
         self.attn = Attn('concat', self.hidden_size)
         self.dropout = nn.Dropout(self.dropout_p)
-        #self.gru = nn.GRU(self.hidden_size, self.hidden_size)
         self.lstm = nn.LSTM(self.embedding_dim, self.hidden_size, num_layers=2, dropout=0.3, bidirectional=True)
         self.concat = nn.Linear(self.hidden_size * 3, self.hidden_size)
         
@@ -63,17 +54,7 @@ class GloveAttnDecoderRNN(nn.Module):
         embedded = self.dropout(embedded)
 
         rnn_output, hidden = self.lstm(embedded, last_hidden)
-        #last_hidden = tuple of (num_layers * num_directions, batch, hidden_size)
-        # ->((4, 1, 600), (4, 1, 600))
-        #rnn_output dim : (seq_len=1, batch, num_directions*hidden_size)
-        #encoder_outputs : (seq_len, batch, hidden_size)
-
-        '''
-        output = self.linearTest(rnn_output)
-        output = self.out(output)
-        return output, hidden, None
-        '''
-
+        
         attn_weights = self.attn(rnn_output, encoder_outputs)
 
         context = attn_weights.bmm(encoder_outputs.transpose(0, 1))
@@ -85,19 +66,6 @@ class GloveAttnDecoderRNN(nn.Module):
         output = self.out(concat_output)
         output = F.log_softmax(output, dim=1)
 	
-        '''
-        attn_weights = F.softmax(self.attn(torch.cat((embedded[0], hidden[0]), 1)), dim=1)
-        attn_applied = torch.bmm(attn_weights.unsqueeze(0), encoder_outputs.unsqueeze(0))
-
-        output = torch.cat((embedded[0], attn_applied[0]), 1)
-        output = self.attn_combine(output).unsqueeze(0)
-
-        output = F.relu(output)
-        output, hidden = self.gru(output, hidden)
-        #output, hidden = self.lstm(output, hidden)
-
-        output = F.log_softmax(self.out(output[0]), dim=1)
-        '''
         return output, hidden, attn_weights
 
     def initHidden(self):
@@ -125,15 +93,7 @@ class Attn(torch.nn.Module):
 
     def concat_score(self, hidden, encoder_output):
         energy = self.attn(torch.cat((hidden.expand(encoder_output.size(0), -1, -1), encoder_output), 2)).tanh()
-        '''
-        print "energy!!"
-        print energy
-        print energy.size()
-        print torch.sum(self.v * energy, dim = 2).size()
-        print encoder_output.size()
-        '''
         return torch.sum(energy, dim=2)
-        #return torch.sum(self.v * energy, dim=2)
 
     def forward(self, hidden, encoder_outputs):
         if self.method == 'general':
@@ -143,21 +103,12 @@ class Attn(torch.nn.Module):
         elif self.method == 'dot':
             attn_energies = self.dot_score(hidden, encoder_outputs)
             
-        attn_energies = attn_energies.t()
-        
-        '''
-        print "attention start!"
-        print attn_energies
-
-        print F.softmax(attn_energies, dim=1)
-        print F.softmax(attn_energies, dim=1).size()
-        '''
+        attn_energies = attn_energies.t() 
 
         return F.softmax(attn_energies, dim=1).unsqueeze(1)
 
 
 def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, decoder_optimizer, criterion, max_length=MAX_LENGTH):
-    #encoder_hidden = encoder.initHidden()
 
     encoder_optimizer.zero_grad()
     decoder_optimizer.zero_grad()
@@ -165,17 +116,8 @@ def train(input_tensor, target_tensor, encoder, decoder, encoder_optimizer, deco
     input_length = input_tensor.size(0)
     target_length = target_tensor.size(0)
 
-    #encoder_outputs = torch.zeros(max_length, encoder.hidden_size, device=DEVICE)
     loss = 0
 
-    '''
-    if input_length > max_length:
-        input_length = max_length
-
-    for ei in range(input_length):
-        encoder_output, encoder_hidden = encoder(input_tensor[ei], encoder_hidden)
-        encoder_outputs[ei] = encoder_output[0, 0]
-    '''
     encoder_outputs, (encoder_hidden, encoder_cell_state) = encoder(input_tensor)
 
     decoder_input = torch.tensor([[SOS_TOKEN]], device=DEVICE)
@@ -233,7 +175,6 @@ def trainIters(encoder, decoder, n_iters, start_index, print_every=1000, plot_ev
     training_pairs = []
     for i in range(n_iters):
         training_pairs.append(MAPPER.tensorsFromPair(PAIRS[random.randint(0, 70000)]))
-    #training_pairs = [MAPPER.tensorsFromPair(random.choice(PAIRS)) for i in range(n_iters)]
     criterion = nn.NLLLoss()
 
     for iter in range(1, n_iters + 1):
@@ -291,7 +232,6 @@ def evaluatePairs(encoder, decoder, n=100):
         output_words = evaluate(encoder, decoder, pair[0])
         output_question = ' '.join(output_words)
         print('Q? ' + output_question)
-        #print(attentions)
         bleu_score = sentence_bleu([MAPPER.normalizeString(pair[1])], output_question)
         print("BLEU score: %f" % bleu_score)
         bleu_scores.append(bleu_score)
@@ -302,10 +242,7 @@ def evaluatePairs(encoder, decoder, n=100):
 def model_train_test(n_iters, print_every):
     emb_dim = 200
     mapper = WordIndexMapper("word_to_index.pkl", "index_to_word.pkl", "word_to_count.pkl")
-    #encoder1 = EncoderRNN(mapper.n_words, hidden_size).to(device)
-    #decoder1 = DecoderRNN(hidden_size, mapper.n_words).to(device)
     encoder = GloveEncoderRNN(emb_dim).to(DEVICE)
-    #attn_decoder1 = AttnDecoderRNN(hidden_size, mapper.n_words).to(device)
     decoder = GloveAttnDecoderRNN(emb_dim).to(DEVICE)
     trainIters(encoder, decoder, n_iters, print_every, plot_every=1000)
     evaluatePairs(encoder, decoder)
