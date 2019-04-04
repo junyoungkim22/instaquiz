@@ -232,7 +232,7 @@ def trainIters(encoder, decoder, n_iters, start_index, print_every=1000, plot_ev
 
     training_pairs = []
     for i in range(n_iters):
-        training_pairs.append(MAPPER.tensorsFromPair(PAIRS[i + start_index]))
+        training_pairs.append(MAPPER.tensorsFromPair(PAIRS[random.randint(0, 70000)]))
     #training_pairs = [MAPPER.tensorsFromPair(random.choice(PAIRS)) for i in range(n_iters)]
     criterion = nn.NLLLoss()
 
@@ -281,10 +281,10 @@ def evaluate(encoder, decoder, paragraph, max_length=MAX_LENGTH):
             decoder_input = topi.squeeze().detach()
         return decoded_words
 
-def evaluatePairs(encoder, decoder, start, n=100):
+def evaluatePairs(encoder, decoder, n=100):
     bleu_scores = []
     for i in range(n):
-        pair = PAIRS[60000 + i + start]
+        pair = PAIRS[70000 + random.randint(0, 10000)]
         print('T: ' + pair[0])
         print('Q: ' + pair[1])
 
@@ -299,7 +299,7 @@ def evaluatePairs(encoder, decoder, start, n=100):
 
     print("BLEU score average: %f" % (sum(bleu_scores) / float(len(bleu_scores))))
 
-def model_train_test(n_iters, start_index, print_every):
+def model_train_test(n_iters, print_every):
     emb_dim = 200
     mapper = WordIndexMapper("word_to_index.pkl", "index_to_word.pkl", "word_to_count.pkl")
     #encoder1 = EncoderRNN(mapper.n_words, hidden_size).to(device)
@@ -307,8 +307,8 @@ def model_train_test(n_iters, start_index, print_every):
     encoder = GloveEncoderRNN(emb_dim).to(DEVICE)
     #attn_decoder1 = AttnDecoderRNN(hidden_size, mapper.n_words).to(device)
     decoder = GloveAttnDecoderRNN(emb_dim).to(DEVICE)
-    trainIters(encoder, decoder, n_iters, start_index, print_every, plot_every=1000)
-    evaluatePairs(encoder, decoder, start_index)
+    trainIters(encoder, decoder, n_iters, print_every, plot_every=1000)
+    evaluatePairs(encoder, decoder)
 
 def load_models(PATH):
     hidden_size = 256
