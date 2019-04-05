@@ -12,7 +12,7 @@ from nltk.translate.bleu_score import sentence_bleu
 import squad_loader
 from word_index_mapper import WordIndexMapper
 from  global_var import PAIRS, DEVICE, MAPPER, TFR, MAX_LENGTH
-from txt_token import SOS_TOKEN, EOS_TOKEN
+from txt_token import SOS_TOKEN, EOS_TOKEN, UNK_TOKEN
 from glove_loader import create_glove_vect_dict, create_emb_layer
 
 class GloveEncoderRNN(nn.Module):
@@ -210,12 +210,21 @@ def evaluate(encoder, decoder, paragraph, max_length=MAX_LENGTH):
         decoder_cell_state = encoder_cell_state
 
         decoded_words = []
+
+        para_word_list = []
+        for sent in paragraph.split('.'):
+            for word in MAPPER.normalizeString(sent):
+                para_word_list.append(word)
         
         for di in range(max_length):
             decoder_output, (decoder_hidden, decoder_cell_state), decoder_attention = decoder(decoder_input, (decoder_hidden, decoder_cell_state), encoder_outputs)
             topv, topi = decoder_output.data.topk(1)
             if topi.item() == EOS_TOKEN:
                 break
+            elif topi.item() == UNK_TOKEN:
+                max_attn_value = max(decoder_attention)
+                max_indexes = [i for i, j in enumerate(decoder_attention) if j == max_attn_value]
+                decoded_words.append(para_word_list[max_indexes[0]])
             else:
                 decoded_words.append(MAPPER.index2word[topi.item()])
 
