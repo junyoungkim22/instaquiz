@@ -11,7 +11,7 @@ from nltk.translate.bleu_score import sentence_bleu
 
 import squad_loader
 from word_index_mapper import WordIndexMapper
-from  global_var import PAIRS, DEVICE, MAPPER, TFR, MAX_LENGTH
+from  global_var import PAIRS, DEV_PAIRS, DEVICE, MAPPER, TFR, MAX_LENGTH
 from txt_token import SOS_TOKEN, EOS_TOKEN, UNK_TOKEN
 from glove_loader import create_glove_vect_dict, create_emb_layer
 
@@ -163,7 +163,7 @@ def timeSince(since, percent):
     rs = es - s
     return '%s (- %s)' % (asMinutes(s), asMinutes(rs))
 
-def trainIters(encoder, decoder, n_iters, start_index, print_every=1000, plot_every=100, learning_rate=0.01):
+def trainIters(encoder, decoder, n_iters, print_every=1000, plot_every=100, learning_rate=0.01):
     start = time.time()
     plot_losses = []
     print_loss_total = 0
@@ -174,7 +174,7 @@ def trainIters(encoder, decoder, n_iters, start_index, print_every=1000, plot_ev
 
     training_pairs = []
     for i in range(n_iters):
-        training_pairs.append(MAPPER.tensorsFromPair(PAIRS[random.randint(0, 70000)]))
+        training_pairs.append(MAPPER.tensorsFromPair(random.choice(PAIRS)))
     criterion = nn.NLLLoss()
 
     for iter in range(1, n_iters + 1):
@@ -222,9 +222,11 @@ def evaluate(encoder, decoder, paragraph, max_length=MAX_LENGTH):
             if topi.item() == EOS_TOKEN:
                 break
             elif topi.item() == UNK_TOKEN:
+                print "unk found"
                 max_attn_value = max(decoder_attention)
                 max_indexes = [i for i, j in enumerate(decoder_attention) if j == max_attn_value]
                 decoded_words.append(para_word_list[max_indexes[0]])
+                print max_indexes[0]
             else:
                 decoded_words.append(MAPPER.index2word[topi.item()])
 
@@ -234,7 +236,7 @@ def evaluate(encoder, decoder, paragraph, max_length=MAX_LENGTH):
 def evaluatePairs(encoder, decoder, n=100):
     bleu_scores = []
     for i in range(n):
-        pair = PAIRS[70000 + random.randint(0, 10000)]
+        pair = random.choice(DEV_PAIRS)
         print('T: ' + pair[0])
         print('Q: ' + pair[1])
 
