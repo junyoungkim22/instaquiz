@@ -213,8 +213,10 @@ def evaluate(encoder, decoder, paragraph, max_length=MAX_LENGTH):
 
         para_word_list = []
         for sent in paragraph.split('.'):
-            for word in MAPPER.normalizeString(sent):
+            for word in MAPPER.normalizeString(sent).split(' '):
                 para_word_list.append(word)
+        para_word_list.append('<eos>')
+        
         
         for di in range(max_length):
             decoder_output, (decoder_hidden, decoder_cell_state), decoder_attention = decoder(decoder_input, (decoder_hidden, decoder_cell_state), encoder_outputs)
@@ -223,10 +225,13 @@ def evaluate(encoder, decoder, paragraph, max_length=MAX_LENGTH):
                 break
             elif topi.item() == UNK_TOKEN:
                 print "unk found"
-                max_attn_value = max(decoder_attention)
-                max_indexes = [i for i, j in enumerate(decoder_attention) if j == max_attn_value]
+                decoder_attn_list = decoder_attention.flatten().tolist();
+                max_attn_value = max(decoder_attn_list)
+                max_indexes = [i for i, j in enumerate(decoder_attn_list) if j == max_attn_value]
+                unk_word = para_word_list[max_indexes[0]]
+                if(unk_word == '<eos>'):
+                    break
                 decoded_words.append(para_word_list[max_indexes[0]])
-                print max_indexes[0]
             else:
                 decoded_words.append(MAPPER.index2word[topi.item()])
 
