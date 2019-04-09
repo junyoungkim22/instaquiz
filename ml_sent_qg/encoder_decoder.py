@@ -240,12 +240,18 @@ def evaluate(encoder, decoder, paragraph, max_length=MAX_LENGTH):
 
 def evaluatePairs(encoder, decoder, n=100):
     bleu_scores = []
+    generated_words = []
     for i in range(n):
         pair = random.choice(DEV_PAIRS)
         print('T: ' + pair[0])
         print('Q: ' + pair[1])
 
         output_words = evaluate(encoder, decoder, pair[0])
+        for word in output_words:
+            if word in generated_words:
+                pass
+            else:
+                generated_words.append(word)
         output_question = ' '.join(output_words)
         print('Q? ' + output_question)
         bleu_score = sentence_bleu([MAPPER.normalizeString(pair[1])], output_question)
@@ -254,6 +260,9 @@ def evaluatePairs(encoder, decoder, n=100):
         print(' ')
 
     print("BLEU score average: %f" % (sum(bleu_scores) / float(len(bleu_scores))))
+    print("Number of generated words: %d" % len(generated_words))
+    print("Generated words:")
+    print generated_words
 
 def model_train_test(n_iters, print_every):
     emb_dim = 200
