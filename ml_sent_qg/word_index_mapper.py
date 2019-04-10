@@ -128,10 +128,10 @@ class WordIndexMapper:
                 continue
         return ret
 
-    def padSentence(self, sentence, pad_length)
+    def padSentence(self, sentence, pad_length):
         indexes = self.indexesFromSentence(sentence)
-        if(len(indexes) < pad_length)
-        indexes += [PAD_TOKEN] * ((pad_length) - len(indexes))
+        if(len(indexes) < pad_length):
+            indexes += [PAD_TOKEN] * ((pad_length) - len(indexes))
         return indexes
 
     def tensorFromParagraph(self, paragraph):

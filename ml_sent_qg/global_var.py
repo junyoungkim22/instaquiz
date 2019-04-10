@@ -13,6 +13,7 @@ DEV_PAIRS = squad_loader.prepare_ans_sent_pairs(dev_data)
 random.shuffle(DEV_PAIRS)
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 MAPPER = WordIndexMapper("word_to_index.pkl", "index_to_word.pkl", "word_to_count.pkl")
+SAVE_EVERY = 5
 
 #TFR is teacher forcing ratio
 TFR = 0.5

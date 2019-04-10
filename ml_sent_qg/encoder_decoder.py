@@ -11,7 +11,7 @@ from nltk.translate.bleu_score import sentence_bleu
 
 import squad_loader
 from word_index_mapper import WordIndexMapper
-from  global_var import PAIRS, DEV_PAIRS, DEVICE, MAPPER, TFR, MAX_LENGTH
+from  global_var import PAIRS, DEV_PAIRS, DEVICE, MAPPER, TFR, MAX_LENGTH, SAVE_EVERY
 from txt_token import SOS_TOKEN, EOS_TOKEN, UNK_TOKEN
 from glove_loader import create_glove_vect_dict, create_emb_layer
 
@@ -197,6 +197,11 @@ def trainIters(encoder, decoder, n_iters, print_every=1000, plot_every=100, lear
                 plot_losses.append(plot_loss_avg)
                 plot_loss_total = 0
 
+        if iter % SAVE_EVERY == 0:
+            torch.save(encoder.state_dict(), "saved/encoder")
+            torch.save(decoder.state_dict(), "saved/decoder")
+            torch.save(decoder.attn.state_dict(), "saved/decoder_attn")
+
 def evaluate(encoder, decoder, paragraph, max_length=MAX_LENGTH):
     with torch.no_grad():
         input_tensor = MAPPER.tensorFromParagraph(paragraph)
@@ -272,12 +277,9 @@ def model_train_test(n_iters, print_every):
     trainIters(encoder, decoder, n_iters, print_every, plot_every=1000)
     evaluatePairs(encoder, decoder)
 
-def load_models(PATH):
-    hidden_size = 256
-    mapper = WordIndexMapper("word_to_index.pkl", "index_to_word.pkl", "word_to_count.pkl")
-    encoder = EncoderRNN(mapper.n_words, hidden_size).to(DEVICE)
-    attn_decoder = AttnDecoderRNN(hidden_size, mapper.n_words).to(device)
-    encoder.load_state_dict(torch.load(PATH + "50k_encoder"))
-    attn_decoder.load_state_dict(torch.load(PATH + "50k_decoder"))
-    evaluateRandomly(encoder, attn_decoder, mapper, True)
+def load_models(encoder, decoder):
+    emb_dim = 200
+    encoder.load_state_dict(torch.load("saved/encoder"))
+    decoder.load_state_dict(torch.load("saved/decoder"))
+    decoder.attn.load_state_dict(torch.load("saved/decoder_attn"))
     
